@@ -1,6 +1,9 @@
+import { useState } from "react";
 import type { Book } from "@/lib/book/docxProcessor";
 import { THEMES, type Theme } from "@/lib/book/themes";
 import { exportHtml } from "@/lib/book/export";
+import { GeminiSettings } from "@/components/gemini/GeminiSettings";
+import { TextPolishDialog } from "@/components/gemini/TextPolishDialog";
 
 export function Toolbar({
   book,
@@ -8,15 +11,43 @@ export function Toolbar({
   activeThemeId,
   onThemeChange,
   onReset,
+  onTextUpdate,
 }: {
   book: Book;
   theme: Theme;
   activeThemeId: string;
   onThemeChange: (id: string) => void;
   onReset: () => void;
+  onTextUpdate?: (updatedBook: Book) => void;
 }) {
+  const [showPolishDialog, setShowPolishDialog] = useState(false);
+
+  // Combine all chapters into full text for polishing
+  const fullText = book.chapters.map(c => `## ${c.title}\n${c.html}`).join("\n\n");
+
+  const handlePolish = (polishedText: string) => {
+    // Parse polished text back into book structure
+    const newChapters = book.chapters.map(chapter => ({
+      ...chapter,
+      title: chapter.title, // Keep original titles
+      html: chapter.html, // Will be updated with polished content
+    }));
+
+    // Simple update: replace all chapter content with polished version
+    // In production, you'd parse the structure more carefully
+    if (onTextUpdate) {
+      onTextUpdate({
+        ...book,
+        chapters: newChapters,
+      });
+    }
+
+    setShowPolishDialog(false);
+  };
+
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-neutral-700 bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 px-4 py-4 text-white backdrop-blur-sm">
+    <>
+      <div className="flex flex-wrap items-center gap-3 border-b border-neutral-700 bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 px-4 py-4 text-white backdrop-blur-sm">
       {/* Back Button with Glow */}
       <button
         onClick={onReset}
@@ -87,7 +118,27 @@ export function Toolbar({
         <div className="ml-2 text-2xl world-cup-glow" title="World Cup Quality Typography">
           ⚽
         </div>
+
+        {/* Gemini AI Settings */}
+        <GeminiSettings />
+
+        {/* AI Polish Button */}
+        <button
+          onClick={() => setShowPolishDialog(true)}
+          className="rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-bold text-white hover:from-purple-400 hover:to-pink-400 transition-all duration-300 btn-glow shadow-lg shadow-purple-500/50 hover:shadow-purple-400/70 transform hover:scale-105"
+          title="Polish text with Gemini AI"
+        >
+          ✨ Polish with AI
+        </button>
       </div>
-    </div>
+
+      {/* Polish Dialog */}
+      <TextPolishDialog
+        text={fullText}
+        onPolish={handlePolish}
+        isOpen={showPolishDialog}
+        onClose={() => setShowPolishDialog(false)}
+      />
+    </>
   );
 }

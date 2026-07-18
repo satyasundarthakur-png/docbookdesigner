@@ -35,6 +35,10 @@ function Index() {
     }
   }, []);
 
+  const handleTextUpdate = useCallback((updatedBook: Book) => {
+    setBook(updatedBook);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-neutral-950 text-white">
@@ -73,6 +77,7 @@ function Index() {
         activeThemeId={themeId}
         onThemeChange={setThemeId}
         onReset={() => setBook(null)}
+        onTextUpdate={handleTextUpdate}
       />
       <BookPreview book={book} theme={theme} />
     </div>
