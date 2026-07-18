@@ -16,10 +16,12 @@ function Index() {
   const [themeId, setThemeId] = useState("classic");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customCoverHtml, setCustomCoverHtml] = useState<string | null>(null);
 
   const handleFile = useCallback(async (file: File) => {
     setLoading(true);
     setError(null);
+    setCustomCoverHtml(null);
     try {
       const buffer = await file.arrayBuffer();
       const data = await processDocx(buffer);
@@ -35,18 +37,14 @@ function Index() {
     }
   }, []);
 
-  const handleTextUpdate = useCallback((updatedBook: Book) => {
-    setBook(updatedBook);
-  }, []);
+  const handleTextUpdate = useCallback((updatedBook: Book) => setBook(updatedBook), []);
+  const handleCoverUpdate = useCallback((html: string) => setCustomCoverHtml(html), []);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-neutral-950 text-white">
-        <div className="animate-bounce text-6xl">📖</div>
-        <div className="text-2xl font-semibold text-amber-400">Designing your book…</div>
-        <div className="text-sm text-neutral-500">
-          Parsing content, detecting chapters, applying theme
-        </div>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-950 text-white">
+        <div className="w-10 h-10 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
+        <div className="text-lg font-medium text-neutral-300">Processing document…</div>
       </div>
     );
   }
@@ -54,11 +52,10 @@ function Index() {
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-950 px-4 text-white">
-        <div className="text-5xl">⚠️</div>
-        <p className="text-center text-lg text-red-400">{error}</p>
+        <p className="text-center text-red-400">{error}</p>
         <button
           onClick={() => setError(null)}
-          className="mt-4 rounded-lg bg-amber-500 px-6 py-2 font-semibold text-black hover:bg-amber-400"
+          className="rounded-lg bg-neutral-800 px-5 py-2 text-sm hover:bg-neutral-700 transition-colors"
         >
           Try Again
         </button>
@@ -76,10 +73,11 @@ function Index() {
         theme={theme}
         activeThemeId={themeId}
         onThemeChange={setThemeId}
-        onReset={() => setBook(null)}
+        onReset={() => { setBook(null); setCustomCoverHtml(null); }}
         onTextUpdate={handleTextUpdate}
+        onCoverUpdate={handleCoverUpdate}
       />
-      <BookPreview book={book} theme={theme} />
+      <BookPreview book={book} theme={theme} customCoverHtml={customCoverHtml} />
     </div>
   );
 }
