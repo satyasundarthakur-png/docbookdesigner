@@ -4,9 +4,26 @@ import type { Theme } from "@/lib/book/themes";
 export function BookPreview({ book, theme }: { book: Book; theme: Theme }) {
   return (
     <div
-      className="flex-1 overflow-auto"
-      style={{ background: "#1a1a1a" }}
+      className="flex-1 overflow-auto relative"
+      style={{ 
+        background: "linear-gradient(135deg, #1a1a1a 0%, #2d1a2d 50%, #1a1a2d 100%)",
+        backgroundAttachment: "fixed"
+      }}
     >
+      {/* Subtle animated gradient overlay */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        background: 'radial-gradient(circle at 20% 50%, rgba(255,0,0,0.03) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(0,0,255,0.03) 0%, transparent 50%)',
+        animation: 'stadium-light 8s ease-in-out infinite',
+        zIndex: 0
+      }}></div>
+      
+      <div style={{ position: 'relative', zIndex: 1 }}>
       <style>{`
         .book-page { background:${theme.pageBg}; color:${theme.pageColor}; font-family:${theme.fontBody}; }
         .book-page h1, .book-page h2, .book-page h3 { 
@@ -86,6 +103,7 @@ export function BookPreview({ book, theme }: { book: Book; theme: Theme }) {
             <div dangerouslySetInnerHTML={{ __html: c.html }} />
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

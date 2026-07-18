@@ -77,11 +77,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DocBook Designer — Turn Word docs into beautiful books" },
+      { title: "DocBook Designer — Beautiful Typography with Rainbow Glow" },
       {
         name: "description",
         content:
-          "Drop a .docx and instantly get a beautifully typeset book with themes, chapters, and export.",
+          "Transform Word docs into beautifully typeset books with Ayurvedic support, rainbow glow effects, and World Cup-inspired design. Professional typography meets vibrant UI.",
       },
       { property: "og:title", content: "DocBook Designer — Turn Word docs into beautiful books" },
       {

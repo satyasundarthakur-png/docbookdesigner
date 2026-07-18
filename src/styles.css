@@ -142,3 +142,198 @@
     color: var(--color-foreground);
   }
 }
+
+/* Rainbow Glow Animations */
+@keyframes rainbow-glow {
+  0% {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5),
+                0 0 40px rgba(255, 127, 0, 0.3);
+  }
+  16% {
+    box-shadow: 0 0 20px rgba(255, 127, 0, 0.5),
+                0 0 40px rgba(255, 255, 0, 0.3);
+  }
+  32% {
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5),
+                0 0 40px rgba(0, 255, 127, 0.3);
+  }
+  48% {
+    box-shadow: 0 0 20px rgba(0, 127, 255, 0.5),
+                0 0 40px rgba(0, 0, 255, 0.3);
+  }
+  64% {
+    box-shadow: 0 0 20px rgba(75, 0, 130, 0.5),
+                0 0 40px rgba(148, 0, 211, 0.3);
+  }
+  80% {
+    box-shadow: 0 0 20px rgba(255, 0, 127, 0.5),
+                0 0 40px rgba(255, 0, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5),
+                0 0 40px rgba(255, 127, 0, 0.3);
+  }
+}
+
+@keyframes rainbow-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(255, 0, 0, 0.7);
+  }
+  25% {
+    transform: scale(1.02);
+    box-shadow: 0 0 25px rgba(255, 127, 0, 0.6),
+                0 0 50px rgba(255, 255, 0, 0.4);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.6),
+                0 0 60px rgba(0, 255, 127, 0.4);
+  }
+  75% {
+    transform: scale(1.02);
+    box-shadow: 0 0 25px rgba(0, 127, 255, 0.6),
+                0 0 50px rgba(75, 0, 130, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(255, 0, 0, 0.7);
+  }
+}
+
+@keyframes float-bounce {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Rainbow Glow On Hover */
+.rainbow-glow:hover {
+  animation: rainbow-glow 3s ease-in-out infinite;
+}
+
+.rainbow-glow:active {
+  animation: rainbow-pulse 0.6s ease-out;
+}
+
+/* World Cup Football Animation */
+@keyframes football-kick {
+  0% {
+    transform: translateX(0) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(100px) translateY(-80px) rotate(360deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(0) translateY(0) rotate(720deg);
+    opacity: 1;
+  }
+}
+
+@keyframes stadium-light {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.football-world-cup {
+  position: relative;
+  display: inline-block;
+}
+
+.football-world-cup::before {
+  content: '⚽';
+  font-size: 2rem;
+  animation: football-kick 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+.world-cup-glow {
+  animation: stadium-light 2s ease-in-out infinite;
+}
+
+/* Interactive Glow Elements */
+.glow-interactive {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.glow-interactive::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.glow-interactive:hover::after {
+  animation: rainbow-glow 3s ease-in-out infinite;
+}
+
+/* Rainbow Text Gradient */
+.rainbow-text {
+  background: linear-gradient(
+    90deg,
+    #ff0000,
+    #ff7f00,
+    #ffff00,
+    #00ff00,
+    #0000ff,
+    #4b0082,
+    #9400d3
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: float-bounce 3s ease-in-out infinite;
+}
+
+/* Glow Container */
+.glow-container {
+  position: relative;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,0,0,0.1), rgba(0,0,255,0.1));
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,0.1);
+}
+
+/* Button Glow States */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.3),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.btn-glow:hover::before {
+  left: 100%;
+}
+
+.btn-glow:hover {
+  animation: rainbow-pulse 0.6s ease-out;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
