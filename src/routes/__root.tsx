@@ -77,21 +77,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "DocBook Designer — Turn Word docs into beautiful books" },
+      {
+        name: "description",
+        content:
+          "Drop a .docx and instantly get a beautifully typeset book with themes, chapters, and export.",
+      },
+      { property: "og:title", content: "DocBook Designer" },
+      {
+        property: "og:description",
+        content: "Turn a Word document into a beautifully typeset book in seconds.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Lora:wght@400;700&family=Playfair+Display:wght@700;900&family=Inter:wght@400;600;800&family=Space+Grotesk:wght@600;800&family=Source+Serif+4:wght@400;700&family=EB+Garamond:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Great+Vibes&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
