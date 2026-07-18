@@ -83,17 +83,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Drop a .docx and instantly get a beautifully typeset book with themes, chapters, and export.",
       },
-      { property: "og:title", content: "DocBook Designer" },
+      { property: "og:title", content: "DocBook Designer — Turn Word docs into beautiful books" },
       {
         property: "og:description",
-        content: "Turn a Word document into a beautifully typeset book in seconds.",
+        content: "Drop a .docx and instantly get a beautifully typeset book with themes, chapters, and export.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "DocBook Designer — Turn Word docs into beautiful books" },
+      { name: "twitter:description", content: "Drop a .docx and instantly get a beautifully typeset book with themes, chapters, and export." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/NZrblfCp2tfsIY37N9reTSdzjvk1/social-images/social-1784392831340-social-image.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/NZrblfCp2tfsIY37N9reTSdzjvk1/social-images/social-1784392831340-social-image.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Lora:wght@400;700&family=Playfair+Display:wght@700;900&family=Inter:wght@400;600;800&family=Space+Grotesk:wght@600;800&family=Source+Serif+4:wght@400;700&family=EB+Garamond:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Great+Vibes&display=swap",
