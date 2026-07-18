@@ -5,6 +5,13 @@ import { exportHtml } from "@/lib/book/export";
 import { GeminiSettings } from "@/components/gemini/GeminiSettings";
 import { TextPolishDialog } from "@/components/gemini/TextPolishDialog";
 
+/** Strip HTML tags to plain text for sending to Gemini */
+function htmlToPlainText(html: string): string {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return div.textContent || div.innerText || "";
+}
+
 export function Toolbar({
   book,
   theme,
@@ -22,21 +29,34 @@ export function Toolbar({
 }) {
   const [showPolishDialog, setShowPolishDialog] = useState(false);
 
-  // Combine all chapters into full text for polishing
-  const fullText = book.chapters.map(c => `## ${c.title}\n${c.html}`).join("\n\n");
+  // Convert HTML chapters to plain text markdown for Gemini
+  const fullText = book.chapters
+    .map(c => `## ${c.title}\n\n${htmlToPlainText(c.html)}`)
+    .join("\n\n");
 
   const handlePolish = (polishedText: string) => {
-    // Store polished text for user reference
-    if (typeof window !== 'undefined') {
-      const timestamp = new Date().toISOString();
-      localStorage.setItem(`polish_backup_${timestamp}`, polishedText);
-      console.info('Polished text saved to localStorage with key:', `polish_backup_${timestamp}`);
+    if (!onTextUpdate) {
+      setShowPolishDialog(false);
+      return;
     }
 
-    // Note: Full integration of polished text back into chapter structure
-    // requires parsing the markdown and matching sections to chapters.
-    // This is left as a future enhancement when the parsing logic is finalized.
+    // Split polished text back into chapters by ## headings
+    const sections = polishedText.split(/^## /m).filter(Boolean);
+    const updatedChapters = book.chapters.map((chapter, i) => {
+      const section = sections[i];
+      if (!section) return chapter;
+      const newlineIdx = section.indexOf("\n");
+      const body = newlineIdx >= 0 ? section.slice(newlineIdx + 1).trim() : "";
+      // Wrap paragraphs back in <p> tags so BookPreview renders them
+      const newHtml = body
+        .split(/\n\n+/)
+        .filter(Boolean)
+        .map(para => `<p>${para.replace(/\n/g, "<br/>")}</p>`)
+        .join("\n");
+      return { ...chapter, html: newHtml || chapter.html };
+    });
 
+    onTextUpdate({ ...book, chapters: updatedChapters });
     setShowPolishDialog(false);
   };
 
@@ -63,7 +83,7 @@ export function Toolbar({
 
       {/* Right Section */}
       <div className="ml-auto flex flex-wrap items-center gap-3">
-        
+
         {/* Theme Selector with Rainbow Glow */}
         <div className="flex gap-1 rounded-xl bg-neutral-900/50 p-1.5 backdrop-blur-sm border border-neutral-800/50 rainbow-glow-subtle">
           {Object.values(THEMES).map((t) => (
@@ -82,15 +102,12 @@ export function Toolbar({
           ))}
         </div>
 
-        {/* Export Button with Rainbow Pulse */}
+        {/* Export Button */}
         <button
           onClick={() => {
             exportHtml(book, theme);
-            // Celebration animation trigger
             const el = document.activeElement as HTMLElement;
-            if (el) {
-              el.style.animation = 'rainbow-pulse 0.6s ease-out';
-            }
+            if (el) el.style.animation = "rainbow-pulse 0.6s ease-out";
           }}
           className="rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-5 py-2 text-sm font-bold text-white hover:from-green-400 hover:to-emerald-400 transition-all duration-300 btn-glow shadow-lg shadow-green-500/50 hover:shadow-green-400/70 transform hover:scale-105"
           title="Export as HTML file"
@@ -98,18 +115,16 @@ export function Toolbar({
           <span>⬇️ Export HTML</span>
         </button>
 
-        {/* Print Button with Rainbow Glow */}
+        {/* Print Button */}
         <button
-          onClick={() => {
-            window.print();
-          }}
+          onClick={() => window.print()}
           className="rounded-lg border border-neutral-600 px-4 py-2 text-sm font-medium text-neutral-100 hover:border-blue-400/60 hover:bg-neutral-800/60 hover:text-blue-300 transition-all duration-300 btn-glow"
           title="Print or save as PDF"
         >
           🖨️ Print / PDF
         </button>
 
-        {/* World Cup Celebration Indicator */}
+        {/* World Cup Indicator */}
         <div className="ml-2 text-2xl world-cup-glow" title="World Cup Quality Typography">
           ⚽
         </div>
