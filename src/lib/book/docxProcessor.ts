@@ -13,6 +13,8 @@ export async function processDocx(buffer: ArrayBuffer): Promise<Book> {
         "p[style-name='Heading 1'] => h1:fresh",
         "p[style-name='Heading 2'] => h2:fresh",
         "p[style-name='Heading 3'] => h3:fresh",
+        "p[style-name='Verse'] => div.verse:fresh",
+        "p[style-name='Translator Note'] => p.translator-note:fresh",
       ],
     },
   );
@@ -26,11 +28,13 @@ export async function processDocx(buffer: ArrayBuffer): Promise<Book> {
   const titleEl = root.querySelector("h1.book-title");
   if (titleEl) {
     title = titleEl.textContent?.trim() || title;
+    titleEl.classList.add("no-drop-cap");
     titleEl.remove();
   }
   const subEl = root.querySelector("p.book-subtitle");
   if (subEl) {
     author = subEl.textContent?.trim() || "";
+    subEl.classList.add("no-drop-cap");
     subEl.remove();
   }
 

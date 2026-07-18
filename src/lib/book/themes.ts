@@ -6,7 +6,7 @@ export type Theme = {
   pageBg: string;
   pageColor: string;
   accent: string;
-  chapterStyle: "serif-classic" | "modern-bold" | "minimal" | "vintage" | "romance";
+  chapterStyle: "serif-classic" | "modern-bold" | "minimal" | "vintage" | "romance" | "ayurvedic";
 };
 
 export const THEMES: Record<string, Theme> = {
@@ -59,6 +59,16 @@ export const THEMES: Record<string, Theme> = {
     pageColor: "#2a1620",
     accent: "#b23a6b",
     chapterStyle: "romance",
+  },
+  ayurvedic: {
+    id: "ayurvedic",
+    name: "Ayurvedic Manuscript",
+    fontBody: '"EB Garamond", Georgia, serif',
+    fontDisplay: '"Cormorant Garamond", Georgia, serif',
+    pageBg: "#f4ead7",
+    pageColor: "#1a1410",
+    accent: "#8b4513",
+    chapterStyle: "ayurvedic",
   },
 };
 

@@ -30,9 +30,29 @@ export function exportHtml(book: Book, theme: Theme) {
   .chapter-num { font-family:${theme.fontDisplay}; letter-spacing:.3em; text-transform:uppercase; font-size:12px; color:var(--accent); text-align:center; margin-bottom:12px; }
   .chapter-title { font-family:${theme.fontDisplay}; font-size:42px; text-align:center; margin: 0 0 48px; color:var(--accent); }
   .chapter-body p { font-size:17px; line-height:1.75; text-align:justify; text-indent:1.5em; margin:0; }
-  .chapter-body p:first-of-type { text-indent:0; }
-  .chapter-body p:first-of-type::first-letter { font-family:${theme.fontDisplay}; font-size:56px; float:left; line-height:.9; padding:6px 8px 0 0; color:var(--accent); }
-  h2,h3 { font-family:${theme.fontDisplay}; color:var(--accent); }
+  .chapter-body p:first-of-type:not(.translator-note):not(.verse) { text-indent:0; }
+  .chapter-body p:first-of-type:not(.translator-note):not(.verse)::first-letter { font-family:${theme.fontDisplay}; font-size:56px; float:left; line-height:.9; padding:6px 8px 0 0; color:var(--accent); }
+  h2, h3, h4, h5, h6 { font-family:${theme.fontDisplay}; color:var(--accent); page-break-inside: avoid; page-break-after: avoid; }
+  .verse {
+    font-style: italic;
+    text-align: center;
+    margin: 2em 1.5em;
+    padding: 1em 0;
+    line-height: 1.9;
+    border-top: 1px solid var(--accent);
+    border-bottom: 1px solid var(--accent);
+    color: var(--accent);
+    page-break-inside: avoid;
+  }
+  .translator-note {
+    border-left: 4px solid var(--accent);
+    padding-left: 1.5em;
+    margin: 1.5em 0;
+    font-style: italic;
+    opacity: 0.85;
+    background: rgba(0, 0, 0, 0.02);
+    page-break-inside: avoid;
+  }
   @media print { body{background:#fff} .page{box-shadow:none;margin:0;max-width:none} }
 </style>
 </head><body>

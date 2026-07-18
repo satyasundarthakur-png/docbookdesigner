@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [book, setBook] = useState<Book | null>(null);
-  const [themeId, setThemeId] = useState("classic");
+  const [themeId, setThemeId] = useState("ayurvedic");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
