@@ -74,21 +74,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DocBook Designer — Beautiful Typography with Rainbow Glow" },
+      { title: "DocBook Designer — Word to Beautiful Book" },
       {
         name: "description",
         content:
-          "Transform Word docs into beautifully typeset books with Ayurvedic support, rainbow glow effects, and World Cup-inspired design. Professional typography meets vibrant UI.",
+          "Transform any Word document into a beautifully typeset book. Multiple themes, auto chapter detection, export to HTML and PDF.",
       },
-      { property: "og:title", content: "DocBook Designer — Turn Word docs into beautiful books" },
+      { property: "og:title", content: "DocBook Designer — Word to Beautiful Book" },
       {
         property: "og:description",
-        content: "Drop a .docx and instantly get a beautifully typeset book with themes, chapters, and export.",
+        content: "Drop a .docx file and instantly get a beautifully typeset book with themes, chapters, and export.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "DocBook Designer — Turn Word docs into beautiful books" },
-      { name: "twitter:description", content: "Drop a .docx and instantly get a beautifully typeset book with themes, chapters, and export." },
+      { name: "twitter:title", content: "DocBook Designer — Word to Beautiful Book" },
+      { name: "twitter:description", content: "Drop a .docx file and instantly get a beautifully typeset book with themes, chapters, and export." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/NZrblfCp2tfsIY37N9reTSdzjvk1/social-images/social-1784392831340-social-image.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/NZrblfCp2tfsIY37N9reTSdzjvk1/social-images/social-1784392831340-social-image.webp" },
     ],

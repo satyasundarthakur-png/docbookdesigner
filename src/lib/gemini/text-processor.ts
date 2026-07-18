@@ -1,6 +1,6 @@
 // Text Processing & Chunking for Gemini API
 
-export type PolishMode = 'grammar' | 'verses' | 'structure' | 'comprehensive';
+export type PolishMode = 'grammar' | 'structure' | 'style' | 'comprehensive';
 
 export interface TextChunk {
   id: string;
@@ -33,9 +33,7 @@ export function chunkText(text: string, chunkSizeChars = 8000): TextChunk[] {
     const line = lines[i];
     const lineWithNewline = line + '\n';
 
-    // Detect section types
     if (line.startsWith('## ')) {
-      // Chapter break
       if (currentChunk.trim()) {
         chunks.push({
           id: `chunk-${chunks.length}`,
@@ -50,7 +48,6 @@ export function chunkText(text: string, chunkSizeChars = 8000): TextChunk[] {
       currentChunk = line;
       chunkStartIndex = globalIndex;
     } else if (line.startsWith('### ')) {
-      // Section break
       if (currentChunk.trim() && currentType !== 'section') {
         chunks.push({
           id: `chunk-${chunks.length}`,
@@ -65,7 +62,6 @@ export function chunkText(text: string, chunkSizeChars = 8000): TextChunk[] {
       currentChunk = line;
       chunkStartIndex = globalIndex;
     } else if (currentChunk.length + lineWithNewline.length > chunkSizeChars) {
-      // Size limit reached
       if (currentChunk.trim()) {
         chunks.push({
           id: `chunk-${chunks.length}`,
@@ -85,7 +81,6 @@ export function chunkText(text: string, chunkSizeChars = 8000): TextChunk[] {
     globalIndex += lineWithNewline.length;
   }
 
-  // Add remaining chunk
   if (currentChunk.trim()) {
     chunks.push({
       id: `chunk-${chunks.length}`,
@@ -100,46 +95,38 @@ export function chunkText(text: string, chunkSizeChars = 8000): TextChunk[] {
 }
 
 /**
- * Create a specialized system prompt based on polish mode
+ * Create a system prompt based on polish mode
  */
 export function getPolishModePrompt(mode: PolishMode): string {
-  const basePrompt = `You are an expert editor specializing in academic, historical, and Ayurvedic literature. Your task is to polish the provided text for:
+  const basePrompt = `You are an expert book editor. Polish the provided text according to the focus area below.
 
-CRITICAL GUIDELINES:
-1. DO NOT change core clinical meanings, traditional remedies, or herb/practice names
-2. Enhance readability without losing the historical, authoritative voice
-3. Preserve Indian English conventions and scholarly terminology
-4. Maintain the original tone and perspective
-5. Do not add new information or modernize outdated practices
-6. Respect the structure and hierarchy of sections
-7. Preserve all Sanskrit terms and medical terminology
-8. Return ONLY the polished text without explanations`;
+RULES:
+1. Preserve the author's voice and intent
+2. Do not add new content or change meaning
+3. Keep all headings, structure markers (##, ###), and formatting intact
+4. Return ONLY the polished text — no explanations, no metadata`;
 
   const modeSpecific = {
-    grammar: `\nFOCUS AREA: Grammar & Translation Flow
-- Fix grammatical errors and awkward phrasing
-- Improve sentence flow and clarity
-- Correct translation inconsistencies
-- Enhance punctuation for readability`,
+    grammar: `\nFOCUS: Grammar & Clarity
+- Fix grammar, spelling, and punctuation errors
+- Improve sentence clarity and flow
+- Remove redundant words`,
 
-    verses: `\nFOCUS AREA: Verse & Shloka Formatting
-- Identify verses and format them as separate, centered blocks
-- Preserve verse content exactly, only improving spacing/punctuation
-- Use consistent formatting for all poetic/verse sections
-- Add line breaks for readability without changing meaning`,
-
-    structure: `\nFOCUS AREA: Document Structure
-- Ensure consistent heading levels (##, ###, etc.)
-- Standardize section formatting
+    structure: `\nFOCUS: Structure & Headings
+- Ensure consistent heading levels
 - Fix orphaned paragraphs
-- Maintain logical flow between sections`,
+- Standardize section formatting`,
 
-    comprehensive: `\nFOCUS AREA: Complete Polish
-- Fix all grammatical issues
-- Enhance translation flow
-- Format verses appropriately
-- Standardize structure and headings
-- Improve overall readability`,
+    style: `\nFOCUS: Writing Style
+- Improve prose rhythm and readability
+- Vary sentence length for better flow
+- Enhance word choice without changing meaning`,
+
+    comprehensive: `\nFOCUS: Full Polish
+- Fix grammar and punctuation
+- Improve clarity and flow
+- Enhance writing style
+- Standardize structure`,
   };
 
   return basePrompt + modeSpecific[mode];
@@ -154,61 +141,26 @@ export function reconstructText(
 ): string {
   const chunks = chunkText(originalText);
   let result = '';
-
   for (const chunk of chunks) {
     const processedContent = processedChunks.get(chunk.id);
-    if (processedContent) {
-      result += processedContent + '\n\n';
-    } else {
-      result += chunk.content + '\n\n';
-    }
+    result += (processedContent ?? chunk.content) + '\n\n';
   }
-
   return result.trim();
 }
 
-/**
- * Estimate processing time based on text length
- * Note: This is used internally by analyzeText() for UI display
- */
 function estimateProcessingTime(textLength: number): string {
   const estimatedSeconds = Math.ceil(textLength / 50000) * 2;
   if (estimatedSeconds < 60) return `${estimatedSeconds}s`;
   return `${Math.ceil(estimatedSeconds / 60)}m ${estimatedSeconds % 60}s`;
 }
 
-/**
- * Detect if text contains verses/shlokas
- * Note: This is used internally by analyzeText() for UI display
- */
-function detectVerses(text: string): number {
-  const versePatterns = [
-    /\*\*Sanskrit verse:\*\*/gi,
-    /सं\w+/g, // Sanskrit text detection
-    /"\s*[A-Z][^.]*['"]\s*$/gm, // Quoted verses
-  ];
-
-  let verseCount = 0;
-  for (const pattern of versePatterns) {
-    verseCount += (text.match(pattern) || []).length;
-  }
-  return verseCount;
-}
-
-/**
- * Format analysis for polishing recommendation
- * Used to display text statistics in the polish dialog
- */
 export function analyzeText(text: string) {
-  const wordCount = text.split(/\s+/).length;
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
   const charCount = text.length;
-  const verseCount = detectVerses(text);
   const chunkCount = chunkText(text).length;
-
   return {
     wordCount,
     charCount,
-    verseCount,
     chunkCount,
     estimatedTime: estimateProcessingTime(charCount),
   };

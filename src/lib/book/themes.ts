@@ -6,13 +6,13 @@ export type Theme = {
   pageBg: string;
   pageColor: string;
   accent: string;
-  chapterStyle: "serif-classic" | "modern-bold" | "minimal" | "vintage" | "romance" | "ayurvedic";
+  chapterStyle: "serif-classic" | "modern-bold" | "minimal" | "vintage" | "romance" | "dark";
 };
 
 export const THEMES: Record<string, Theme> = {
   classic: {
     id: "classic",
-    name: "Classic Novel",
+    name: "Classic",
     fontBody: '"Lora", Georgia, serif',
     fontDisplay: '"Playfair Display", Georgia, serif',
     pageBg: "#f6f1e7",
@@ -22,7 +22,7 @@ export const THEMES: Record<string, Theme> = {
   },
   modern: {
     id: "modern",
-    name: "Modern Press",
+    name: "Modern",
     fontBody: '"Inter", system-ui, sans-serif',
     fontDisplay: '"Space Grotesk", system-ui, sans-serif',
     pageBg: "#ffffff",
@@ -32,7 +32,7 @@ export const THEMES: Record<string, Theme> = {
   },
   minimal: {
     id: "minimal",
-    name: "Minimal White",
+    name: "Minimal",
     fontBody: '"Source Serif 4", Georgia, serif',
     fontDisplay: '"Source Serif 4", Georgia, serif',
     pageBg: "#fafafa",
@@ -42,7 +42,7 @@ export const THEMES: Record<string, Theme> = {
   },
   vintage: {
     id: "vintage",
-    name: "Vintage Paper",
+    name: "Vintage",
     fontBody: '"EB Garamond", Georgia, serif',
     fontDisplay: '"Cormorant Garamond", Georgia, serif',
     pageBg: "#efe6d2",
@@ -60,15 +60,15 @@ export const THEMES: Record<string, Theme> = {
     accent: "#b23a6b",
     chapterStyle: "romance",
   },
-  ayurvedic: {
-    id: "ayurvedic",
-    name: "Ayurvedic Manuscript",
-    fontBody: '"EB Garamond", Georgia, serif',
-    fontDisplay: '"Cormorant Garamond", Georgia, serif',
-    pageBg: "#f4ead7",
-    pageColor: "#1a1410",
-    accent: "#8b4513",
-    chapterStyle: "ayurvedic",
+  dark: {
+    id: "dark",
+    name: "Dark",
+    fontBody: '"Source Serif 4", Georgia, serif',
+    fontDisplay: '"Playfair Display", Georgia, serif',
+    pageBg: "#1a1a1a",
+    pageColor: "#e8e0d0",
+    accent: "#c9a84c",
+    chapterStyle: "dark",
   },
 };
 
