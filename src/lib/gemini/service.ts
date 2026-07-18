@@ -7,7 +7,6 @@ import { getStoredApiKey } from './config';
 export interface ProcessOptions {
   mode: PolishMode;
   onProgress?: (progress: number, message: string) => void;
-  onChunkComplete?: (chunkId: string, content: string) => void;
 }
 
 export interface ProcessResponse {
@@ -76,7 +75,6 @@ export async function processTextWithGemini(
 
         const resultText = response.response.text().trim();
         processedChunks.set(chunk.id, resultText);
-        options.onChunkComplete?.(chunk.id, resultText);
 
         // Add small delay to avoid rate limits
         await new Promise((resolve) => setTimeout(resolve, 500));

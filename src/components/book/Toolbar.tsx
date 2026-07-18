@@ -26,21 +26,16 @@ export function Toolbar({
   const fullText = book.chapters.map(c => `## ${c.title}\n${c.html}`).join("\n\n");
 
   const handlePolish = (polishedText: string) => {
-    // Parse polished text back into book structure
-    const newChapters = book.chapters.map(chapter => ({
-      ...chapter,
-      title: chapter.title, // Keep original titles
-      html: chapter.html, // Will be updated with polished content
-    }));
-
-    // Simple update: replace all chapter content with polished version
-    // In production, you'd parse the structure more carefully
-    if (onTextUpdate) {
-      onTextUpdate({
-        ...book,
-        chapters: newChapters,
-      });
+    // Store polished text for user reference
+    if (typeof window !== 'undefined') {
+      const timestamp = new Date().toISOString();
+      localStorage.setItem(`polish_backup_${timestamp}`, polishedText);
+      console.info('Polished text saved to localStorage with key:', `polish_backup_${timestamp}`);
     }
+
+    // Note: Full integration of polished text back into chapter structure
+    // requires parsing the markdown and matching sections to chapters.
+    // This is left as a future enhancement when the parsing logic is finalized.
 
     setShowPolishDialog(false);
   };

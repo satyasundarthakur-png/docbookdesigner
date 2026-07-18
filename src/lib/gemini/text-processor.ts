@@ -169,8 +169,9 @@ export function reconstructText(
 
 /**
  * Estimate processing time based on text length
+ * Note: This is used internally by analyzeText() for UI display
  */
-export function estimateProcessingTime(textLength: number): string {
+function estimateProcessingTime(textLength: number): string {
   const estimatedSeconds = Math.ceil(textLength / 50000) * 2;
   if (estimatedSeconds < 60) return `${estimatedSeconds}s`;
   return `${Math.ceil(estimatedSeconds / 60)}m ${estimatedSeconds % 60}s`;
@@ -178,8 +179,9 @@ export function estimateProcessingTime(textLength: number): string {
 
 /**
  * Detect if text contains verses/shlokas
+ * Note: This is used internally by analyzeText() for UI display
  */
-export function detectVerses(text: string): number {
+function detectVerses(text: string): number {
   const versePatterns = [
     /\*\*Sanskrit verse:\*\*/gi,
     /सं\w+/g, // Sanskrit text detection
@@ -195,6 +197,7 @@ export function detectVerses(text: string): number {
 
 /**
  * Format analysis for polishing recommendation
+ * Used to display text statistics in the polish dialog
  */
 export function analyzeText(text: string) {
   const wordCount = text.split(/\s+/).length;
