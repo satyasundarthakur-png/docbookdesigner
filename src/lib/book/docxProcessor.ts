@@ -22,45 +22,60 @@ export async function processDocx(buffer: ArrayBuffer): Promise<Book> {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
   const root = doc.body.firstElementChild as HTMLElement;
 
-  // Detect book title / author from first title-like nodes
-  let title = "Untitled Book";
+  // Detect book title / author from styled Title/Subtitle nodes
+  let title = "";
   let author = "";
   const titleEl = root.querySelector("h1.book-title");
   if (titleEl) {
-    title = titleEl.textContent?.trim() || title;
-    titleEl.classList.add("no-drop-cap");
+    title = titleEl.textContent?.trim() || "";
     titleEl.remove();
   }
   const subEl = root.querySelector("p.book-subtitle");
   if (subEl) {
     author = subEl.textContent?.trim() || "";
-    subEl.classList.add("no-drop-cap");
     subEl.remove();
   }
 
   // Split into chapters by h1
   const chapters: Chapter[] = [];
   let current: Chapter | null = null;
+  let preChapterHtml = "";
+
   const nodes = Array.from(root.children);
   for (const node of nodes) {
     if (node.tagName === "H1") {
-      if (current) chapters.push(current);
+      if (current) {
+        chapters.push(current);
+      } else if (preChapterHtml.trim()) {
+        // Content before first H1: add as unnamed intro chapter
+        // Use first non-empty text as auto-title, fallback to "Introduction"
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = preChapterHtml;
+        const firstText = tempDiv.textContent?.trim().split(/\s+/).slice(0, 4).join(" ") || "Introduction";
+        chapters.push({ title: firstText, html: preChapterHtml });
+        preChapterHtml = "";
+      }
       current = { title: node.textContent?.trim() || "Chapter", html: "" };
     } else {
-      if (!current) current = { title: "Prologue", html: "" };
-      current.html += node.outerHTML;
+      if (current) {
+        current.html += node.outerHTML;
+      } else {
+        preChapterHtml += node.outerHTML;
+      }
     }
   }
   if (current) chapters.push(current);
 
+  // If still no chapters, treat entire doc as one chapter
   if (chapters.length === 0) {
     chapters.push({ title: "Chapter 1", html: root.innerHTML });
   }
 
-  // Fallback title from first h1
-  if (title === "Untitled Book" && chapters[0]) {
+  // Title fallback: first chapter heading, then filename (set by caller)
+  if (!title && chapters[0]) {
     title = chapters[0].title;
   }
+  if (!title) title = "Untitled Book";
 
   return { title, author, chapters };
 }

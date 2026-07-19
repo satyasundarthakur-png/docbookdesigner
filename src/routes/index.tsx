@@ -25,8 +25,9 @@ function Index() {
     try {
       const buffer = await file.arrayBuffer();
       const data = await processDocx(buffer);
+      // Use filename as title fallback if still untitled
       if (!data.title || data.title === "Untitled Book") {
-        data.title = file.name.replace(/\.docx$/i, "");
+        data.title = file.name.replace(/\.docx$/i, "").replace(/[-_]/g, " ");
       }
       setBook(data);
     } catch (e) {
@@ -39,12 +40,15 @@ function Index() {
 
   const handleTextUpdate = useCallback((updatedBook: Book) => setBook(updatedBook), []);
   const handleCoverUpdate = useCallback((html: string) => setCustomCoverHtml(html), []);
+  const handleBookMetaChange = useCallback((title: string, author: string) => {
+    setBook(prev => prev ? { ...prev, title, author } : prev);
+  }, []);
 
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-950 text-white">
         <div className="w-10 h-10 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
-        <div className="text-lg font-medium text-neutral-300">Processing document…</div>
+        <div className="text-neutral-300">Processing document…</div>
       </div>
     );
   }
@@ -53,10 +57,8 @@ function Index() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-950 px-4 text-white">
         <p className="text-center text-red-400">{error}</p>
-        <button
-          onClick={() => setError(null)}
-          className="rounded-lg bg-neutral-800 px-5 py-2 text-sm hover:bg-neutral-700 transition-colors"
-        >
+        <button onClick={() => setError(null)}
+          className="rounded-lg bg-neutral-800 px-5 py-2 text-sm hover:bg-neutral-700 transition-colors">
           Try Again
         </button>
       </div>
@@ -77,7 +79,12 @@ function Index() {
         onTextUpdate={handleTextUpdate}
         onCoverUpdate={handleCoverUpdate}
       />
-      <BookPreview book={book} theme={theme} customCoverHtml={customCoverHtml} />
+      <BookPreview
+        book={book}
+        theme={theme}
+        customCoverHtml={customCoverHtml}
+        onBookMetaChange={handleBookMetaChange}
+      />
     </div>
   );
 }

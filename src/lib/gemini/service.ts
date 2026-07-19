@@ -13,6 +13,7 @@ import {
 export interface ProcessOptions {
   mode: PolishMode;
   model?: AIModel;
+  signal?: AbortSignal;
   onProgress?: (progress: number, message: string) => void;
 }
 
@@ -20,6 +21,7 @@ export interface ProcessResponse {
   success: boolean;
   polishedText?: string;
   error?: string;
+  aborted?: boolean;
   chunksProcessed?: number;
   totalTime?: number;
 }
@@ -37,11 +39,11 @@ export interface CoverPageResponse {
   error?: string;
 }
 
-// ── Gemini ───────────────────────────────────────────────────────────────────
-
-async function callGemini(modelId: string, prompt: string, apiKey: string): Promise<string> {
+async function callGemini(modelId: string, prompt: string, apiKey: string, signal?: AbortSignal): Promise<string> {
   const client = new GoogleGenerativeAI(apiKey);
   const model = client.getGenerativeModel({ model: modelId });
+  // Check abort before expensive call
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const response = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 8000 },
@@ -49,9 +51,7 @@ async function callGemini(modelId: string, prompt: string, apiKey: string): Prom
   return response.response.text().trim();
 }
 
-// ── Groq ─────────────────────────────────────────────────────────────────────
-
-async function callGroq(modelId: string, prompt: string, apiKey: string): Promise<string> {
+async function callGroq(modelId: string, prompt: string, apiKey: string, signal?: AbortSignal): Promise<string> {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -61,6 +61,7 @@ async function callGroq(modelId: string, prompt: string, apiKey: string): Promis
       temperature: 0.3,
       max_tokens: 8000,
     }),
+    signal,
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -70,22 +71,18 @@ async function callGroq(modelId: string, prompt: string, apiKey: string): Promis
   return data.choices?.[0]?.message?.content?.trim() ?? '';
 }
 
-// ── Unified ──────────────────────────────────────────────────────────────────
-
-async function callAI(modelId: AIModel, prompt: string): Promise<string> {
+async function callAI(modelId: AIModel, prompt: string, signal?: AbortSignal): Promise<string> {
   const provider = getModelProvider(modelId);
   if (provider === 'groq') {
     const key = getStoredGroqKey();
     if (!key) throw new Error('Groq API key not set. Add it in ⚙️ AI Settings.');
-    return callGroq(modelId, prompt, key);
+    return callGroq(modelId, prompt, key, signal);
   } else {
     const key = getStoredGeminiKey();
     if (!key) throw new Error('Gemini API key not set. Add it in ⚙️ AI Settings.');
-    return callGemini(modelId, prompt, key);
+    return callGemini(modelId, prompt, key, signal);
   }
 }
-
-// ── Polish ───────────────────────────────────────────────────────────────────
 
 export async function processTextWithGemini(
   text: string,
@@ -99,18 +96,39 @@ export async function processTextWithGemini(
   options.onProgress?.(0, `${chunks.length} chunk${chunks.length > 1 ? 's' : ''} · starting…`);
 
   for (let i = 0; i < chunks.length; i++) {
+    // Check abort signal before each chunk
+    if (options.signal?.aborted) {
+      return {
+        success: false,
+        aborted: true,
+        polishedText: reconstructText(text, processedChunks),
+        chunksProcessed: i,
+        totalTime: Date.now() - startTime,
+        error: 'Stopped by user',
+      };
+    }
+
     const chunk = chunks[i];
     options.onProgress?.(Math.round((i / chunks.length) * 100), `Chunk ${i + 1} / ${chunks.length}…`);
 
     try {
       const prompt = `${getPolishModePrompt(options.mode)}\n\n---\n\n${chunk.content}`;
-      const result = await callAI(modelId, prompt);
+      const result = await callAI(modelId, prompt, options.signal);
       processedChunks.set(chunk.id, result);
+      // Small delay to avoid rate limits
       await new Promise(r => setTimeout(r, 200));
     } catch (e) {
-      // Fail fast — first error stops everything
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      return { success: false, error: msg };
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return {
+          success: false,
+          aborted: true,
+          polishedText: reconstructText(text, processedChunks),
+          chunksProcessed: i,
+          totalTime: Date.now() - startTime,
+          error: 'Stopped by user',
+        };
+      }
+      return { success: false, error: e instanceof Error ? e.message : 'Unknown error' };
     }
   }
 
@@ -122,8 +140,6 @@ export async function processTextWithGemini(
     totalTime: Date.now() - startTime,
   };
 }
-
-// ── Cover page ───────────────────────────────────────────────────────────────
 
 export async function generateCoverPage(options: CoverPageOptions): Promise<CoverPageResponse> {
   try {
@@ -150,5 +166,4 @@ Rules:
   }
 }
 
-// legacy compat
 export const validateApiKey = async (_key: string) => true;
