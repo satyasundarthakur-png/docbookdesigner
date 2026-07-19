@@ -101,19 +101,38 @@ export async function processDocx(buffer: ArrayBuffer): Promise<Book> {
       const labelText = node.textContent?.trim() || "Chapter";
 
       if (useExplicitLabels) {
-        // "CHAPTER 4" is just a label — look ahead for a real title on the
-        // next non-empty paragraph, so the chapter isn't just called
-        // "CHAPTER 4" with no descriptive name.
+        // "CHAPTER 4" is just a label. We ONLY fold in a descriptive
+        // subtitle from the next line when that next line is CLEARLY a
+        // title fragment, not body prose — otherwise this would eat real
+        // paragraph content (this exact bug previously deleted the first
+        // paragraph of every chapter whenever a chapter's Heading-1 text
+        // was literally just "Chapter N", which is the most common case).
+        //
+        // Safe signal for "this is a subtitle, not a paragraph": the node
+        // itself is a heading tag (H1/H2/H3) or is short AND has no
+        // sentence-ending punctuation (a real paragraph almost always
+        // ends with . ! ? or similar).
         let derivedTitle = labelText;
         const next = allNodes[idx + 1];
         if (next && !isBreakNode(next)) {
           const nextTxt = next.textContent?.trim() || "";
-          // Only borrow it as the title if it's reasonably short (a heading-
-          // like line), not a full paragraph of body prose.
-          if (nextTxt && nextTxt.length <= 140) {
+          const isHeadingTag = /^H[1-4]$/.test(next.tagName);
+          const looksLikeTitleFragment =
+            nextTxt.length > 0 &&
+            nextTxt.length <= 100 &&
+            !/[.!?]["')\]]?\s*$/.test(nextTxt); // doesn't end like a sentence
+
+          if (isHeadingTag || looksLikeTitleFragment) {
             derivedTitle = `${labelText}: ${nextTxt}`.replace(/\s+/g, " ").trim();
-            // Consume that next node so it isn't ALSO rendered as body text
-            allNodes[idx + 1] = document.createElement("div"); // becomes a harmless empty node
+            if (isHeadingTag) {
+              // It's a heading — demote/consume it so it isn't duplicated
+              // as a section heading immediately inside the new chapter.
+              allNodes[idx + 1] = document.createElement("div");
+            } else {
+              // It's a short plain paragraph fragment (e.g. a subtitle
+              // typed as a normal paragraph) — safe to fold in and consume.
+              allNodes[idx + 1] = document.createElement("div");
+            }
           }
         }
         current = { title: derivedTitle, html: "" };
