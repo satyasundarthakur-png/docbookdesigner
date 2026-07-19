@@ -65,7 +65,3 @@ export function isConfigured(): boolean {
   const provider = getModelProvider(model);
   return provider === 'gemini' ? !!getStoredGeminiKey() : !!getStoredGroqKey();
 }
-
-// legacy compat
-export const getStoredApiKey = getStoredGeminiKey;
-export const isGeminiConfigured = isConfigured;

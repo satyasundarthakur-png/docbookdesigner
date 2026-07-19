@@ -143,7 +143,15 @@ export function reconstructText(
   let result = '';
   for (const chunk of chunks) {
     const processedContent = processedChunks.get(chunk.id);
-    result += (processedContent ?? chunk.content) + '\n\n';
+    // SAFETY: never allow an empty/whitespace-only processed value to
+    // erase original content. `??` only guards null/undefined — an empty
+    // string from a blocked/failed AI call would otherwise pass through
+    // and silently delete this chunk. Always fall back to the original
+    // chunk content unless the processed result has real content.
+    const safe = (processedContent && processedContent.trim().length > 0)
+      ? processedContent
+      : chunk.content;
+    result += safe + '\n\n';
   }
   return result.trim();
 }

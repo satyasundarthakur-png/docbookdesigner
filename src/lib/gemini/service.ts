@@ -23,6 +23,7 @@ export interface ProcessResponse {
   error?: string;
   aborted?: boolean;
   chunksProcessed?: number;
+  chunksSkipped?: number;
   totalTime?: number;
 }
 
@@ -39,17 +40,50 @@ export interface CoverPageResponse {
   error?: string;
 }
 
+/** Minimum ratio of returned length to original length to accept a result as valid. */
+const MIN_LENGTH_RATIO = 0.4;
+
+class SafetyBlockError extends Error {
+  constructor(reason?: string) {
+    super(`Content was blocked by the AI provider's safety filter${reason ? ` (${reason})` : ''}.`);
+    this.name = 'SafetyBlockError';
+  }
+}
+
+// ── Gemini ───────────────────────────────────────────────────────────────────
+
 async function callGemini(modelId: string, prompt: string, apiKey: string, signal?: AbortSignal): Promise<string> {
-  const client = new GoogleGenerativeAI(apiKey);
-  const model = client.getGenerativeModel({ model: modelId });
-  // Check abort before expensive call
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+  const client = new GoogleGenerativeAI(apiKey);
+  const model  = client.getGenerativeModel({ model: modelId });
   const response = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.3, topP: 0.9, maxOutputTokens: 8000 },
   });
-  return response.response.text().trim();
+
+  const res = response.response;
+
+  // Detect safety blocks BEFORE calling .text(), which can silently
+  // return '' when candidates are empty or filtered.
+  const blockReason = (res as any)?.promptFeedback?.blockReason;
+  if (blockReason) throw new SafetyBlockError(String(blockReason));
+
+  const candidates = (res as any)?.candidates;
+  if (!candidates || candidates.length === 0) throw new SafetyBlockError('no candidates returned');
+
+  const finishReason = candidates[0]?.finishReason;
+  if (finishReason === 'SAFETY' || finishReason === 'RECITATION') {
+    throw new SafetyBlockError(String(finishReason));
+  }
+
+  const text = res.text().trim();
+  if (!text) throw new SafetyBlockError('empty response');
+
+  return text;
 }
+
+// ── Groq ─────────────────────────────────────────────────────────────────────
 
 async function callGroq(modelId: string, prompt: string, apiKey: string, signal?: AbortSignal): Promise<string> {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -63,13 +97,24 @@ async function callGroq(modelId: string, prompt: string, apiKey: string, signal?
     }),
     signal,
   });
+
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err?.error?.message ?? `Groq error ${response.status}`);
   }
+
   const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() ?? '';
+  const choice = data.choices?.[0];
+  const finishReason = choice?.finish_reason;
+  if (finishReason === 'content_filter') throw new SafetyBlockError('content_filter');
+
+  const text = (choice?.message?.content ?? '').trim();
+  if (!text) throw new SafetyBlockError('empty response');
+
+  return text;
 }
+
+// ── Unified ──────────────────────────────────────────────────────────────────
 
 async function callAI(modelId: AIModel, prompt: string, signal?: AbortSignal): Promise<string> {
   const provider = getModelProvider(modelId);
@@ -84,6 +129,15 @@ async function callAI(modelId: AIModel, prompt: string, signal?: AbortSignal): P
   }
 }
 
+// ── Polish ───────────────────────────────────────────────────────────────────
+//
+// CRITICAL SAFETY GUARANTEE: this function must NEVER let a chunk's content
+// be silently replaced with nothing. If a chunk's AI call fails for any
+// reason (safety block, network error, empty response, or an implausibly
+// short result), the ORIGINAL chunk text is kept instead, and the chunk is
+// counted as "skipped" so the caller can inform the user. Content loss is
+// treated as a bug, not an acceptable degradation.
+
 export async function processTextWithGemini(
   text: string,
   options: ProcessOptions,
@@ -92,17 +146,18 @@ export async function processTextWithGemini(
   const startTime = Date.now();
   const chunks = chunkText(text);
   const processedChunks = new Map<string, string>();
+  let skipped = 0;
 
   options.onProgress?.(0, `${chunks.length} chunk${chunks.length > 1 ? 's' : ''} · starting…`);
 
   for (let i = 0; i < chunks.length; i++) {
-    // Check abort signal before each chunk
     if (options.signal?.aborted) {
       return {
         success: false,
         aborted: true,
         polishedText: reconstructText(text, processedChunks),
         chunksProcessed: i,
+        chunksSkipped: skipped,
         totalTime: Date.now() - startTime,
         error: 'Stopped by user',
       };
@@ -113,9 +168,16 @@ export async function processTextWithGemini(
 
     try {
       const prompt = `${getPolishModePrompt(options.mode)}\n\n---\n\n${chunk.content}`;
-      const result = await callAI(modelId, prompt, options.signal);
-      processedChunks.set(chunk.id, result);
-      // Small delay to avoid rate limits
+      const result  = await callAI(modelId, prompt, options.signal);
+
+      // Guard against implausibly short results (silent truncation / partial block)
+      if (result.length < chunk.content.length * MIN_LENGTH_RATIO) {
+        // Keep the original — do not accept a suspiciously short "polish"
+        skipped++;
+      } else {
+        processedChunks.set(chunk.id, result);
+      }
+
       await new Promise(r => setTimeout(r, 200));
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
@@ -124,22 +186,35 @@ export async function processTextWithGemini(
           aborted: true,
           polishedText: reconstructText(text, processedChunks),
           chunksProcessed: i,
+          chunksSkipped: skipped,
           totalTime: Date.now() - startTime,
           error: 'Stopped by user',
         };
       }
-      return { success: false, error: e instanceof Error ? e.message : 'Unknown error' };
+      // Any other per-chunk failure (including safety blocks): keep the
+      // original chunk content, count it as skipped, and CONTINUE — never
+      // drop content, never abort the whole book over one flagged chunk.
+      skipped++;
     }
   }
 
   options.onProgress?.(100, 'Done');
+
+  const polishedText = reconstructText(text, processedChunks);
+
   return {
     success: true,
-    polishedText: reconstructText(text, processedChunks),
+    polishedText,
     chunksProcessed: chunks.length,
+    chunksSkipped: skipped,
     totalTime: Date.now() - startTime,
+    error: skipped > 0
+      ? `${skipped} chunk${skipped > 1 ? 's were' : ' was'} left unchanged (AI declined or returned an invalid result — likely a safety filter on sensitive medical/safety content). Nothing was deleted.`
+      : undefined,
   };
 }
+
+// ── Cover page ───────────────────────────────────────────────────────────────
 
 export async function generateCoverPage(options: CoverPageOptions): Promise<CoverPageResponse> {
   try {
@@ -166,4 +241,3 @@ Rules:
   }
 }
 
-export const validateApiKey = async (_key: string) => true;

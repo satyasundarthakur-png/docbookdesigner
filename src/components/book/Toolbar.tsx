@@ -3,16 +3,10 @@ import type { Book } from "@/lib/book/docxProcessor";
 import { THEMES, type Theme } from "@/lib/book/themes";
 import { exportHtml } from "@/lib/book/export";
 import { PAGE_SIZES, type PageSize, type PageSizeId } from "@/lib/book/pageSize";
+import { bookToPolishText, polishTextToBook } from "@/lib/book/bookTextSync";
 import { GeminiSettings } from "@/components/gemini/GeminiSettings";
 import { TextPolishDialog } from "@/components/gemini/TextPolishDialog";
 import { CoverPageDialog } from "@/components/gemini/CoverPageDialog";
-
-function htmlToPlainText(html: string): string {
-  if (typeof document === 'undefined') return html.replace(/<[^>]+>/g, '');
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return div.textContent || div.innerText || "";
-}
 
 export function Toolbar({
   book, theme, pageSize,
@@ -31,21 +25,11 @@ export function Toolbar({
   const [showPolish, setShowPolish] = useState(false);
   const [showCover, setShowCover]   = useState(false);
 
-  const fullText = book.chapters
-    .map(c => `## ${c.title}\n\n${htmlToPlainText(c.html)}`).join("\n\n");
+  const fullText = bookToPolishText(book);
 
   const handlePolish = (polishedText: string) => {
     if (!onTextUpdate) { setShowPolish(false); return; }
-    const sections = polishedText.split(/^## /m).filter(Boolean);
-    const updatedChapters = book.chapters.map((ch, i) => {
-      const sec = sections[i]; if (!sec) return ch;
-      const nl = sec.indexOf('\n');
-      const body = nl >= 0 ? sec.slice(nl + 1).trim() : '';
-      const html = body.split(/\n\n+/).filter(Boolean)
-        .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('\n');
-      return { ...ch, html: html || ch.html };
-    });
-    onTextUpdate({ ...book, chapters: updatedChapters });
+    onTextUpdate(polishTextToBook(polishedText, book));
     setShowPolish(false);
   };
 

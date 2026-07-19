@@ -113,7 +113,7 @@ export function CoverPageDialog({ title, author, isOpen, onClose, onApply }: Cov
             </div>
 
             <div className="text-xs text-neutral-600 pt-1">
-              Using: <span className="text-neutral-400">{getStoredModel().replace('gemini-', '').replace('-preview-06-17', ' Lite')}</span>
+              Using: <span className="text-neutral-400">{(typeof window !== 'undefined' ? getStoredModel() : 'gemini-2.5-flash').replace('gemini-', '').replace('-preview-06-17', ' Lite')}</span>
             </div>
           </div>
 

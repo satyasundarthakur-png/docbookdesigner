@@ -33,78 +33,116 @@ export async function processDocx(buffer: ArrayBuffer): Promise<Book> {
   const subEl = root.querySelector("p.book-subtitle");
   if (subEl)   { author = subEl.textContent?.trim() || ""; subEl.remove(); }
 
-  // ── 2. Detect document structure ────────────────────────────────────────
-  // Strategy: use the FIRST h1 that looks like a "CHAPTER N" heading as
-  // the chapter-break marker. All other h1s become h2 (section headings).
-  // This handles documents that use h1 for both chapter titles AND section
-  // headings within a chapter.
-
   const allNodes = Array.from(root.children) as HTMLElement[];
 
-  // Find h1 nodes that are chapter-level (e.g. "Chapter 4", "CHAPTER IV",
-  // or look like a chapter declaration — bold, short, standalone)
-  const isChapterH1 = (el: HTMLElement): boolean => {
+  // ── 2. Detect chapter-break markers ─────────────────────────────────────
+  // Priority 1: a paragraph or heading whose ENTIRE text is a "Chapter N"
+  // label (e.g. "CHAPTER 4", "Chapter Four", "CHAPTER IV"). This is the
+  // most explicit and reliable signal — many manuscripts (including
+  // per-chapter .docx files) put this on its own line as plain/bold text,
+  // NOT as a Heading-1 style. If we only looked at H1 tags we would miss
+  // this entirely and misread every in-chapter section heading as its own
+  // chapter (the original bug).
+  const CHAPTER_LABEL_RE = /^chapter\s+([0-9]+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\b\.?:?\s*$/i;
+
+  const isChapterLabel = (el: HTMLElement): boolean => {
+    const txt = el.textContent?.trim() || "";
+    return CHAPTER_LABEL_RE.test(txt);
+  };
+
+  // Priority 2 (fallback if no explicit "Chapter N" label found anywhere):
+  // an H1 that looks like a standalone chapter title — short, all-caps.
+  const looksLikeChapterH1 = (el: HTMLElement): boolean => {
     if (el.tagName !== "H1") return false;
     const txt = el.textContent?.trim() || "";
-    // Explicit chapter markers
     if (/^chapter\s+\d+/i.test(txt)) return true;
     if (/^chapter\s+[ivxlc]+/i.test(txt)) return true;
-    // All-caps short title alone on a line (≤60 chars, no lowercase) — treat as chapter
     if (txt.length <= 60 && txt === txt.toUpperCase() && /[A-Z]/.test(txt)) return true;
     return false;
   };
 
-  const chapterH1Count = allNodes.filter(isChapterH1).length;
+  const hasExplicitChapterLabels = allNodes.some(isChapterLabel);
+  const chapterH1Count = allNodes.filter(looksLikeChapterH1).length;
 
-  // If there are zero dedicated chapter-h1s, treat every h1 as a chapter break
-  // (classic single-document-per-chapter structure).
-  // If there IS at least one chapter-h1, only those break chapters; other h1s → h2.
-  const useAllH1AsChapters = chapterH1Count === 0;
+  // Decide the chapter-break strategy for this document, in priority order:
+  //   1. Explicit "Chapter N" label paragraphs/headings found → use those only.
+  //   2. No explicit labels, but some H1s look like standalone chapter
+  //      titles → use those only (other H1s become section headings).
+  //   3. Neither found → every H1 is a chapter break (classic structure
+  //      where each H1 genuinely is a new chapter).
+  const useExplicitLabels = hasExplicitChapterLabels;
+  const useChapterStyleH1 = !useExplicitLabels && chapterH1Count > 0;
+  const useAllH1AsChapters = !useExplicitLabels && !useChapterStyleH1;
+
+  const isBreakNode = (el: HTMLElement): boolean => {
+    if (useExplicitLabels) return isChapterLabel(el);
+    if (useChapterStyleH1) return looksLikeChapterH1(el);
+    return el.tagName === "H1"; // useAllH1AsChapters
+  };
 
   // ── 3. Split into chapters ──────────────────────────────────────────────
   const chapters: Chapter[] = [];
   let current: Chapter | null = null;
   let preHtml = "";
+  let pendingLabelText = ""; // holds "CHAPTER 4" text until we find its title line
 
-  for (const node of allNodes) {
-    const isBreak = node.tagName === "H1" &&
-      (useAllH1AsChapters || isChapterH1(node));
+  for (let idx = 0; idx < allNodes.length; idx++) {
+    const node = allNodes[idx];
 
-    if (isBreak) {
-      // Save previous chapter
+    if (isBreakNode(node)) {
+      // Close out the previous chapter
       if (current) {
         chapters.push(current);
       } else if (preHtml.trim()) {
-        // Content before first chapter heading → intro chapter
         chapters.push({ title: firstWords(preHtml, 5) || "Introduction", html: preHtml });
         preHtml = "";
       }
-      current = { title: node.textContent?.trim() || "Chapter", html: "" };
+
+      const labelText = node.textContent?.trim() || "Chapter";
+
+      if (useExplicitLabels) {
+        // "CHAPTER 4" is just a label — look ahead for a real title on the
+        // next non-empty paragraph, so the chapter isn't just called
+        // "CHAPTER 4" with no descriptive name.
+        let derivedTitle = labelText;
+        const next = allNodes[idx + 1];
+        if (next && !isBreakNode(next)) {
+          const nextTxt = next.textContent?.trim() || "";
+          // Only borrow it as the title if it's reasonably short (a heading-
+          // like line), not a full paragraph of body prose.
+          if (nextTxt && nextTxt.length <= 140) {
+            derivedTitle = `${labelText}: ${nextTxt}`.replace(/\s+/g, " ").trim();
+            // Consume that next node so it isn't ALSO rendered as body text
+            allNodes[idx + 1] = document.createElement("div"); // becomes a harmless empty node
+          }
+        }
+        current = { title: derivedTitle, html: "" };
+      } else {
+        current = { title: labelText, html: "" };
+      }
     } else {
-      // Non-chapter h1 → demote to h2 (section heading within a chapter)
+      // Non-break node → part of the current chapter's body.
+      // If it's an H1 that isn't being used as a chapter break in this
+      // document's strategy, demote it to H2 (section heading).
       let nodeHtml = node.outerHTML;
       if (node.tagName === "H1") {
         nodeHtml = nodeHtml.replace(/^<h1/, "<h2").replace(/h1>$/, "h2>");
       }
 
-      // ── 4. Post-process inline content ──────────────────────────────
       nodeHtml = postProcess(nodeHtml);
 
-      if (current) {
-        current.html += nodeHtml;
-      } else {
-        preHtml += nodeHtml;
-      }
+      if (current) current.html += nodeHtml;
+      else preHtml += nodeHtml;
     }
   }
   if (current) chapters.push(current);
 
-  // Entire document is one chapter (no h1 found at all)
+  // Entire document is one chapter (no break markers found at all)
   if (chapters.length === 0) {
     chapters.push({ title: title || "Chapter 1", html: postProcess(root.innerHTML) });
   }
 
-  // ── 5. Title fallback ───────────────────────────────────────────────────
+  // ── 4. Title fallback ────────────────────────────────────────────────────
   if (!title && chapters[0]) title = chapters[0].title;
   if (!title) title = "Untitled Book";
 
@@ -115,7 +153,7 @@ export async function processDocx(buffer: ArrayBuffer): Promise<Book> {
 
 /** Extract first N words from raw HTML for a fallback title */
 function firstWords(html: string, n: number): string {
-  return (html.replace(/<[^>]+>/g, " ").trim().split(/\s+/).slice(0, n).join(" "));
+  return html.replace(/<[^>]+>/g, " ").trim().split(/\s+/).slice(0, n).join(" ");
 }
 
 /**
@@ -124,26 +162,35 @@ function firstWords(html: string, n: number): string {
  *  - Convert **bold** markdown in text nodes → <strong>
  *  - Convert *italic* markdown in text nodes → <em>
  *  - Convert Translator's Note paragraphs → styled note class
+ *
+ * IMPORTANT: this function must be content-preserving. It only ever wraps
+ * or restyles existing text — it must never truncate, drop, or replace
+ * paragraph content. Every regex here operates on the full paragraph text
+ * and re-emits all of it.
  */
 function postProcess(html: string): string {
-  // Work on individual <p> tags for targeted replacement
   return html.replace(/<p>([\s\S]*?)<\/p>/g, (match, inner) => {
     const text = inner.trim();
+    if (!text) return match; // preserve empty paragraphs untouched
+
+    const plain = stripTags(text);
 
     // ── Caution / Warning blocks ──
-    // Matches: ⚠ CAUTION:, ⚠ WARNING:, ** ⚠ CAUTION **, etc.
-    if (/^[⚠🚨]?\s*\*{0,2}(?:CAUTION|WARNING|IMPORTANT)\b/i.test(stripTags(text)) ||
-        text.includes('⚠')) {
-      const cleaned = inlineMarkdown(text)
-        .replace(/^\s*[⚠🚨]\s*/, '')         // remove leading icon
-        .replace(/^\*{1,2}CAUTION:?\*{0,2}\s*/i, '')
-        .replace(/^\*{1,2}WARNING:?\*{0,2}\s*/i, '');
+    if (/^[⚠🚨]?\s*\*{0,2}(?:CAUTION|WARNING|IMPORTANT)\b/i.test(plain) || plain.includes('⚠')) {
+      let cleaned = inlineMarkdown(text);
+      // Strip a leading icon/label ONLY if it is actually at the start of
+      // the (tag-stripped) text — avoids silently eating content when the
+      // icon is wrapped in a leading <strong> tag.
+      cleaned = cleaned.replace(/^(<strong>|<em>)*\s*[⚠🚨]\s*/i, (m) => m.replace(/[⚠🚨]\s*/i, ''));
+      cleaned = cleaned.replace(/(<strong>|<em>)*\s*\*{0,2}(CAUTION|WARNING):?\*{0,2}\s*/i, (m) =>
+        m.replace(/\*{0,2}(CAUTION|WARNING):?\*{0,2}\s*/i, ''));
       return `<div class="caution-box"><span class="caution-icon">⚠</span><div class="caution-body"><strong>Caution:</strong> ${cleaned}</div></div>`;
     }
 
     // ── Translator's Note ──
-    if (/^\*{0,2}Translator['']?s?\s+Note[:\*]?/i.test(stripTags(text))) {
-      const cleaned = inlineMarkdown(text).replace(/^\*{0,2}Translator['']?s?\s+Note[:\*]?\s*\*{0,2}\s*/i, '');
+    if (/^\*{0,2}Translator['']?s?\s+Note[:\*]?/i.test(plain)) {
+      let cleaned = inlineMarkdown(text);
+      cleaned = cleaned.replace(/^(<strong>|<em>)*\s*\*{0,2}Translator['']?s?\s+Note[:\*]?\s*(<\/strong>|<\/em>)*\s*/i, '');
       return `<p class="translator-note"><strong>Translator's Note:</strong> ${cleaned}</p>`;
     }
 
@@ -160,12 +207,10 @@ function stripTags(s: string): string {
 /**
  * Convert simple inline markdown in HTML-safe text:
  *  **text** → <strong>text</strong>
- *  *text*   → <em>text</em> (not already inside **)
+ *  *text*   → <em>text</em>
  */
 function inlineMarkdown(html: string): string {
-  // Bold first (** before *)
   html = html.replace(/\*\*([^*]+?)\*\*/g, "<strong>$1</strong>");
-  // Italic (single *) — skip if followed immediately by another * (already handled)
   html = html.replace(/\*([^*\n]+?)\*/g, "<em>$1</em>");
   return html;
 }

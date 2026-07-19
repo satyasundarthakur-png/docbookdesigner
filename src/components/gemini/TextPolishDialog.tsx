@@ -7,6 +7,7 @@ import { isConfigured, getStoredModel, AI_MODELS } from '@/lib/gemini/config';
 import { exportPolishedText, exportHtml } from '@/lib/book/export';
 import type { Book } from '@/lib/book/docxProcessor';
 import type { Theme } from '@/lib/book/themes';
+import { polishTextToBook } from '@/lib/book/bookTextSync';
 
 export interface TextPolishDialogProps {
   text: string; book: Book; theme: Theme;
@@ -23,19 +24,6 @@ const MODES: { id: PolishMode; label: string; desc: string; icon: string }[] = [
   { id: 'comprehensive', icon: '⚡', label: 'Comprehensive',        desc: 'All improvements combined' },
 ];
 
-function buildPolishedBook(polishedText: string, book: Book): Book {
-  const sections = polishedText.split(/^## /m).filter(Boolean);
-  const chapters = book.chapters.map((ch, i) => {
-    const sec = sections[i]; if (!sec) return ch;
-    const nl = sec.indexOf('\n');
-    const body = nl >= 0 ? sec.slice(nl + 1).trim() : '';
-    const html = body.split(/\n\n+/).filter(Boolean)
-      .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('\n');
-    return { ...ch, html: html || ch.html };
-  });
-  return { ...book, chapters };
-}
-
 export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose }: TextPolishDialogProps) {
   const [polishMode, setPolishMode]   = useState<PolishMode>('comprehensive');
   const [status, setStatus]           = useState<Status>('idle');
@@ -44,6 +32,7 @@ export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose 
   const [error, setError]             = useState<string | null>(null);
   const [partialResult, setPartial]   = useState<string | null>(null);
   const [polishedBook, setPolishedBook] = useState<Book | null>(null);
+  const [skipWarning, setSkipWarning]   = useState<string | null>(null);
 
   const abortRef       = useRef<AbortController | null>(null);
   const pausedRef      = useRef(false);
@@ -60,7 +49,7 @@ export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose 
     if (!isConfigured()) { setError('Set your API key in ⚙️ AI Settings first.'); setStatus('error'); return; }
     const ctrl = new AbortController();
     abortRef.current = ctrl; pausedRef.current = false;
-    setStatus('running'); setError(null); setProgress(0); setPartial(null); setPolishedBook(null);
+    setStatus('running'); setError(null); setProgress(0); setPartial(null); setPolishedBook(null); setSkipWarning(null);
 
     const result = await processTextWithGemini(text, {
       mode: polishMode, signal: ctrl.signal,
@@ -74,9 +63,10 @@ export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose 
       setStatus('stopped'); setMsg(`Stopped — ${result.chunksProcessed ?? 0} chunks processed`);
       if (result.polishedText) setPartial(result.polishedText);
     } else if (result.success && result.polishedText) {
-      const pb = buildPolishedBook(result.polishedText, book);
+      const pb = polishTextToBook(result.polishedText, book);
       setPolishedBook(pb); onPolish(result.polishedText);
       setStatus('done'); setProgress(100); setMsg('Complete');
+      setSkipWarning(result.error ?? null); // non-fatal note about skipped chunks
     } else {
       setStatus('error'); setError(result.error ?? 'Failed');
     }
@@ -85,7 +75,7 @@ export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose 
   const handlePause  = () => { pausedRef.current = true;  setStatus('paused'); };
   const handleResume = () => { pausedRef.current = false; setStatus('running'); resolvePause(); };
   const handleStop   = () => { abortRef.current?.abort(); pausedRef.current = false; resolvePause(); };
-  const handleReset  = () => { setStatus('idle'); setProgress(0); setMsg(''); setError(null); setPartial(null); setPolishedBook(null); };
+  const handleReset  = () => { setStatus('idle'); setProgress(0); setMsg(''); setError(null); setPartial(null); setPolishedBook(null); setSkipWarning(null); };
 
   const isRunning = status === 'running';
   const isPaused  = status === 'paused';
@@ -181,6 +171,11 @@ export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose 
               <div className="rounded-xl bg-green-500/8 border border-green-500/20 px-4 py-3 text-xs text-green-300">
                 ✓ Applied to preview — save a copy:
               </div>
+              {skipWarning && (
+                <div className="rounded-xl bg-yellow-500/8 border border-yellow-500/25 px-4 py-3 text-xs text-yellow-300">
+                  ⚠ {skipWarning}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => exportPolishedText(polishedBook)}
                   className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-white/75 hover:bg-white/10 transition-all">
