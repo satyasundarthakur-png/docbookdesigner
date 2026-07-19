@@ -3,82 +3,90 @@ import { useCallback, useState } from "react";
 export function Uploader({ onFile }: { onFile: (f: File) => void }) {
   const [drag, setDrag] = useState(false);
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDrag(false);
-      const f = e.dataTransfer.files?.[0];
-      if (f && f.name.toLowerCase().endsWith(".docx")) onFile(f);
-    },
-    [onFile],
-  );
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDrag(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f && f.name.toLowerCase().endsWith(".docx")) onFile(f);
+  }, [onFile]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 px-6 text-white overflow-hidden relative">
-      {/* Background ambient circles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
-      </div>
+    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-[#0a0a12] px-6">
+      {/* Ambient orbs */}
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
 
-      <div className="relative z-10">
-        <div className="mb-10 text-center">
-          <div className="mb-4 text-5xl">📚</div>
-          <h1 className="mb-3 font-serif text-5xl font-bold tracking-tight text-white">
-            DocBook Designer
+      {/* Subtle grid */}
+      <div className="absolute inset-0 z-0" style={{
+        backgroundImage: `linear-gradient(rgba(199,125,255,0.03) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(199,125,255,0.03) 1px, transparent 1px)`,
+        backgroundSize: '48px 48px',
+      }} />
+
+      <div className="relative z-10 flex flex-col items-center w-full max-w-lg">
+
+        {/* Quill icon */}
+        <div className="quill-float mb-8 select-none" style={{ fontSize: 64 }}>🪶</div>
+
+        {/* Title */}
+        <div className="ink-drop text-center mb-2">
+          <h1 className="text-5xl font-bold tracking-tight leading-none mb-1">
+            <span className="rainbow-text">DocBook</span>
+            <span className="text-white/80"> Designer</span>
           </h1>
-          <p className="text-base text-neutral-400">
-            Transform any Word document into a beautifully typeset book
-          </p>
         </div>
+        <p className="ink-drop ink-drop-delay-1 text-white/40 text-sm mb-10 tracking-wide text-center">
+          Transform any Word document into a beautifully typeset book
+        </p>
 
-        {/* Upload Area */}
-        <label
-          onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-          onDragLeave={() => setDrag(false)}
-          onDrop={onDrop}
-          className={`
-            flex w-full max-w-xl cursor-pointer flex-col items-center justify-center gap-4
-            rounded-2xl border-2 border-dashed p-16 transition-all duration-300
-            ${drag
-              ? "border-amber-400 bg-amber-500/10 scale-105"
-              : "border-neutral-700 bg-neutral-900/50 backdrop-blur-sm hover:border-neutral-500 hover:bg-neutral-800/50"
-            }
-          `}
-        >
-          <div className="text-5xl">📄</div>
-          <div className="text-xl font-semibold text-white">Drop your .docx file here</div>
-          <div className="text-sm text-neutral-500">or click to browse</div>
-          <input
-            type="file"
-            accept=".docx"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onFile(f);
+        {/* Drop zone */}
+        <div className="ink-drop ink-drop-delay-2 w-full rainbow-border">
+          <label
+            onDragOver={e => { e.preventDefault(); setDrag(true); }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={onDrop}
+            className="flex flex-col items-center justify-center gap-4 rounded-xl cursor-pointer transition-all duration-300 p-14"
+            style={{
+              background: drag
+                ? 'rgba(114,9,183,0.18)'
+                : 'rgba(14,14,26,0.9)',
+              boxShadow: drag ? '0 0 40px rgba(199,125,255,0.2) inset' : 'none',
             }}
-          />
-        </label>
-
-        {/* Feature highlights */}
-        <div className="mt-10 grid grid-cols-3 gap-4 max-w-xl text-center">
-          <div className="rounded-xl bg-neutral-900/60 p-4">
-            <div className="text-xl mb-1">🎨</div>
-            <div className="text-xs font-semibold text-neutral-300">Multiple Themes</div>
-          </div>
-          <div className="rounded-xl bg-neutral-900/60 p-4">
-            <div className="text-xl mb-1">📖</div>
-            <div className="text-xs font-semibold text-neutral-300">Auto Chapters</div>
-          </div>
-          <div className="rounded-xl bg-neutral-900/60 p-4">
-            <div className="text-xl mb-1">⬇️</div>
-            <div className="text-xs font-semibold text-neutral-300">Export & Print</div>
-          </div>
+          >
+            <div className="text-4xl transition-transform duration-300" style={{ transform: drag ? 'scale(1.15)' : 'scale(1)' }}>
+              📄
+            </div>
+            <div className="text-center">
+              <div className="text-white font-semibold text-lg mb-1">
+                {drag ? 'Release to open' : 'Drop your .docx file here'}
+              </div>
+              <div className="text-white/35 text-xs">or click to browse</div>
+            </div>
+            <input type="file" accept=".docx" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+          </label>
         </div>
 
-        <p className="mt-8 text-xs text-neutral-600 text-center">
-          Runs entirely in your browser · No data leaves your device
+        {/* Feature pills */}
+        <div className="ink-drop ink-drop-delay-3 flex gap-3 mt-8 flex-wrap justify-center">
+          {[
+            { icon: '🎨', label: '6 Themes' },
+            { icon: '📐', label: 'A4 · A5 · Trade' },
+            { icon: '✨', label: 'AI Polish' },
+            { icon: '🎨', label: 'AI Cover' },
+            { icon: '⬇️', label: 'Export & Print' },
+          ].map(f => (
+            <div key={f.label} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white/50 border border-white/6"
+              style={{ background: 'rgba(255,255,255,0.03)' }}>
+              <span>{f.icon}</span>
+              <span>{f.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-8 text-xs text-white/20 text-center">
+          Runs entirely in your browser · Your file never leaves your device
         </p>
       </div>
     </div>
