@@ -7,60 +7,63 @@ import { FONT_LINK } from "./themes";
 
 export function exportHtml(book: Book, theme: Theme, pageSize?: PageSize) {
   const ps = pageSize ?? PAGE_SIZES['a5'];
+  const cw = ps.widthPx - ps.marginInnerPx - ps.marginOuterPx;
 
   const chaptersHtml = book.chapters.map((c, i) => `
-    <div class="book-page">
-      <div class="chapter-num">Chapter ${i + 1}</div>
-      <div class="chapter-rule"></div>
-      <h1 class="chapter-title">${escapeHtml(c.title)}</h1>
-      <div class="chapter-body">${c.html}</div>
-    </div>`).join('\n');
+<div class="book-page">
+  <div class="chap-num">Chapter ${i + 1}</div>
+  <div class="chap-rule"></div>
+  <div class="chap-title">${escapeHtml(c.title)}</div>
+  <div class="body">${c.html}</div>
+</div>`).join('\n');
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/>
 <title>${escapeHtml(book.title)}</title>
 <link rel="stylesheet" href="${FONT_LINK}"/>
 <style>
-  @page { size:${ps.cssWidth} ${ps.cssHeight}; margin:${ps.cssMargin}; }
-  :root { --bg:${theme.pageBg}; --fg:${theme.pageColor}; --accent:${theme.accent}; }
-  * { box-sizing: border-box; }
-  body { background:#555; margin:0; padding:24px 0; font-family:${theme.fontBody}; color:var(--fg); }
-  .book-page {
-    background:var(--bg);
-    width:${ps.cssWidth};
-    min-height:${ps.cssHeight};
-    margin:0 auto 24px;
-    padding:${ps.marginTopPx}px ${ps.marginOuterPx}px ${ps.marginBottomPx}px ${ps.marginInnerPx}px;
-    box-shadow:0 4px 24px rgba(0,0,0,.4);
-    page-break-after:always;
-  }
-  .cover {
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center; text-align:center;
-  }
-  .cover-rule { width:35%; height:2px; background:var(--accent); opacity:.4; margin:32px auto; }
-  .cover-rule-sm { width:20%; height:1px; background:var(--accent); opacity:.3; margin:20px auto; }
-  .cover h1 { font-family:${theme.fontDisplay}; font-size:${ps.coverTitleSize}px; margin:0; color:var(--accent); line-height:1.2; }
-  .cover .author { font-size:${ps.bodyFontSize * 1.4}px; opacity:.65; margin:0; }
-  .chapter-num { font-family:${theme.fontDisplay}; letter-spacing:.3em; text-transform:uppercase; font-size:${ps.bodyFontSize * 0.75}px; color:var(--accent); text-align:center; margin-bottom:${ps.bodyFontSize * 0.8}px; }
-  .chapter-rule { width:20%; height:1px; background:var(--accent); opacity:.35; margin:0 auto ${ps.bodyFontSize * 1.5}px; }
-  .chapter-title { font-family:${theme.fontDisplay}; font-size:${ps.chapterTitleSize}px; text-align:center; margin:0 0 ${ps.bodyFontSize * 2.5}px; color:var(--accent); font-weight:700; line-height:1.2; page-break-after:avoid; }
-  .chapter-body p { font-size:${ps.bodyFontSize}px; line-height:${ps.lineHeight}; text-align:justify; text-indent:1.5em; margin:0 0 3px; }
-  .chapter-body p:first-of-type { text-indent:0; }
-  .chapter-body p:first-of-type::first-letter { font-family:${theme.fontDisplay}; font-size:${ps.bodyFontSize * 3.8}px; float:left; line-height:.85; padding:4px 7px 0 0; color:var(--accent); }
-  h2,h3,h4 { font-family:${theme.fontDisplay}; color:var(--accent); page-break-after:avoid; }
-  .verse { font-style:italic; text-align:center; margin:1.8em 1.2em; padding:.8em 0; line-height:1.9; border-top:1px solid var(--accent); border-bottom:1px solid var(--accent); color:var(--accent); page-break-inside:avoid; }
-  .translator-note { border-left:3px solid var(--accent); padding-left:1.2em; margin:1.2em 0; font-style:italic; opacity:.82; page-break-inside:avoid; }
-  @media print { body{background:#fff;padding:0} .book-page{box-shadow:none;margin:0;} }
+@page { size:${ps.cssWidth} ${ps.cssHeight}; margin:${ps.cssMargin}; }
+*{box-sizing:border-box;}
+:root{--bg:${theme.pageBg};--fg:${theme.pageColor};--acc:${theme.accent};}
+body{background:#1a1a2e;margin:0;padding:24px 0;font-family:${theme.fontBody};}
+
+.book-page{
+  background:var(--bg);color:var(--fg);font-family:${theme.fontBody};
+  width:${ps.cssWidth};min-height:${ps.cssHeight};
+  margin:0 auto 24px;
+  padding:${ps.marginTopPx}px ${ps.marginOuterPx}px ${ps.marginBottomPx}px ${ps.marginInnerPx}px;
+  box-shadow:0 4px 32px rgba(0,0,0,.5);
+  page-break-after:always;
+}
+.cover{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+.cover-top-rule,.cover-bot-rule{width:${Math.round(cw*.45)}px;height:1.5px;background:var(--acc);opacity:.35;margin:${Math.round(ps.coverTitlePx*1.4)}px auto;}
+.cover-mid-rule{width:${Math.round(cw*.22)}px;height:1px;background:var(--acc);opacity:.25;margin:${Math.round(ps.coverTitlePx*.7)}px auto;}
+.cover h1{font-family:${theme.fontDisplay};font-size:${ps.coverTitlePx}px;line-height:${Math.round(ps.coverTitlePx*1.18)}px;color:var(--acc);font-weight:700;margin:0;}
+.cover .author{font-size:${ps.coverAuthorPx}px;opacity:.65;margin:0;}
+
+.body p{font-size:${ps.bodyFontSizePx}px;line-height:${ps.leadingPx}px;text-align:justify;text-indent:1.5em;margin:0 0 ${Math.round(ps.leadingPx*.15)}px;orphans:3;widows:3;}
+.body p:first-of-type{text-indent:0;}
+.body p:first-of-type::first-letter{font-family:${theme.fontDisplay};font-size:${Math.round(ps.bodyFontSizePx*3.5)}px;float:left;line-height:.82;padding:${Math.round(ps.bodyFontSizePx*.28)}px ${Math.round(ps.bodyFontSizePx*.55)}px 0 0;color:var(--acc);}
+.body h2{font-family:${theme.fontDisplay};font-size:${ps.sectionTitlePx}px;color:var(--acc);font-weight:700;margin:${Math.round(ps.leadingPx*1.5)}px 0 ${Math.round(ps.leadingPx*.5)}px;page-break-after:avoid;}
+.body h3{font-family:${theme.fontDisplay};font-size:${Math.round(ps.subSectionPt*1.333)}px;color:var(--acc);font-weight:700;margin:${ps.leadingPx}px 0 ${Math.round(ps.leadingPx*.4)}px;page-break-after:avoid;}
+.body .verse{font-style:italic;text-align:center;margin:${ps.leadingPx*1.2}px ${Math.round(cw*.08)}px;padding:${Math.round(ps.leadingPx*.6)}px 0;border-top:1px solid var(--acc);border-bottom:1px solid var(--acc);color:var(--acc);font-size:${Math.round(ps.bodyFontSizePx*.94)}px;}
+.body .translator-note{border-left:2px solid var(--acc);padding-left:${Math.round(cw*.06)}px;margin:${ps.leadingPx}px 0;font-style:italic;font-size:${Math.round(ps.bodyFontSizePx*.92)}px;opacity:.80;page-break-inside:avoid;}
+.body blockquote{margin:${ps.leadingPx}px ${Math.round(cw*.06)}px;font-size:${Math.round(ps.bodyFontSizePx*.94)}px;opacity:.85;}
+
+.chap-num{font-family:${theme.fontDisplay};font-size:${Math.round(ps.chapterNumPt*1.333)}px;color:var(--acc);text-align:center;letter-spacing:.25em;text-transform:uppercase;font-weight:700;line-height:1;margin-bottom:${Math.round(ps.leadingPx*.6)}px;}
+.chap-rule{width:${Math.round(cw*.18)}px;height:1px;background:var(--acc);margin:0 auto ${Math.round(ps.leadingPx*.9)}px;opacity:.4;}
+.chap-title{font-family:${theme.fontDisplay};font-size:${ps.chapterTitlePx}px;line-height:${Math.round(ps.chapterTitlePx*1.22)}px;color:var(--acc);text-align:center;font-weight:700;font-style:italic;margin:0 0 ${Math.round(ps.leadingPx*2)}px;page-break-after:avoid;}
+
+@media print{body{background:#fff;padding:0;}.book-page{box-shadow:none;margin:0;}}
 </style>
 </head><body>
-  <div class="book-page cover">
-    <div class="cover-rule"></div>
-    <h1>${escapeHtml(book.title)}</h1>
-    ${book.author ? `<div class="cover-rule-sm"></div><p class="author">${escapeHtml(book.author)}</p>` : ''}
-    <div class="cover-rule"></div>
-  </div>
-  ${chaptersHtml}
+<div class="book-page cover">
+  <div class="cover-top-rule"></div>
+  <h1>${escapeHtml(book.title)}</h1>
+  ${book.author ? `<div class="cover-mid-rule"></div><p class="author">${escapeHtml(book.author)}</p>` : ''}
+  <div class="cover-bot-rule"></div>
+</div>
+${chaptersHtml}
 </body></html>`;
 
   saveAs(new Blob([html], { type: 'text/html;charset=utf-8' }), `${sanitize(book.title)}.html`);
