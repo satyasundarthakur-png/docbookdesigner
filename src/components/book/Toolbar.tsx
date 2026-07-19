@@ -132,7 +132,7 @@ export function Toolbar({
           <button
             onClick={() => setShowPolishDialog(true)}
             className="rounded-lg border border-purple-700/50 bg-purple-900/20 px-3 py-1.5 text-sm text-purple-300 hover:bg-purple-900/40 transition-colors"
-            title={`Polish text with Gemini (${getStoredModel().includes('lite') ? 'Flash Lite' : 'Flash'})`}
+            title="Polish text with AI"
           >
             ✨ Polish
           </button>

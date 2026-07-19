@@ -61,7 +61,7 @@ export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose 
   if (!isOpen) return null;
 
   const analysis = analyzeText(text);
-  const activeModel = AI_MODELS.find(m => m.id === getStoredModel());
+  const activeModel = AI_MODELS.find(m => m.id === (typeof window !== "undefined" ? getStoredModel() : "gemini-2.5-flash"));
 
   const resolvePause = () => {
     if (pauseResolveRef.current) {
