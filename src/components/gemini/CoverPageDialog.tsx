@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Sparkles, AlertCircle } from 'lucide-react';
 import { generateCoverPage } from '@/lib/gemini/service';
-import { isGeminiConfigured, getStoredModel } from '@/lib/gemini/config';
+import { isConfigured, getStoredModel } from '@/lib/gemini/config';
 
 export interface CoverPageDialogProps {
   title: string;
@@ -24,7 +24,7 @@ export function CoverPageDialog({ title, author, isOpen, onClose, onApply }: Cov
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
-    if (!isGeminiConfigured()) {
+    if (!isConfigured()) {
       setError('Gemini API key not configured. Please set it in ⚙️ AI Settings.');
       return;
     }

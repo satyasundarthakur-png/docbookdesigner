@@ -3,7 +3,7 @@ import { Wand2, AlertCircle, CheckCircle } from 'lucide-react';
 import type { PolishMode } from '@/lib/gemini/text-processor';
 import { analyzeText } from '@/lib/gemini/text-processor';
 import { processTextWithGemini } from '@/lib/gemini/service';
-import { isGeminiConfigured } from '@/lib/gemini/config';
+import { isConfigured } from '@/lib/gemini/config';
 
 export interface TextPolishDialogProps {
   text: string;
@@ -24,7 +24,7 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
   const analysis = analyzeText(text);
 
   const handlePolish = async () => {
-    if (!isGeminiConfigured()) {
+    if (!isConfigured()) {
       setError('Gemini API key not configured. Please configure it in AI Settings.');
       return;
     }
