@@ -73,3 +73,13 @@ function escapeHtml(s: string) {
 function sanitize(s: string) {
   return s.replace(/[^a-z0-9-_]+/gi, "_").slice(0, 60) || "book";
 }
+
+export function exportPolishedText(book: Book) {
+  const text = book.chapters
+    .map(c => `## ${c.title}\n\n${c.html.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim()}`)
+    .join('\n\n---\n\n');
+
+  const full = `${book.title}${book.author ? '\nBy ' + book.author : ''}\n\n${'='.repeat(60)}\n\n${text}`;
+  const blob = new Blob([full], { type: 'text/plain;charset=utf-8' });
+  saveAs(blob, `${sanitize(book.title)}_polished.txt`);
+}

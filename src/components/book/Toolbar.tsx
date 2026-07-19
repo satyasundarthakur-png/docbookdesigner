@@ -145,6 +145,8 @@ export function Toolbar({
       {/* Dialogs */}
       <TextPolishDialog
         text={fullText}
+        book={book}
+        theme={theme}
         onPolish={handlePolish}
         isOpen={showPolishDialog}
         onClose={() => setShowPolishDialog(false)}

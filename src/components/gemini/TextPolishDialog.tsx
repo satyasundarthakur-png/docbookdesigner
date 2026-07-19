@@ -1,12 +1,17 @@
 import { useState, useRef, useCallback } from 'react';
-import { Wand2, AlertCircle, CheckCircle, Square, Pause, Play } from 'lucide-react';
+import { Wand2, AlertCircle, CheckCircle, Square, Pause, Play, Download, FileText } from 'lucide-react';
 import type { PolishMode } from '@/lib/gemini/text-processor';
 import { analyzeText } from '@/lib/gemini/text-processor';
 import { processTextWithGemini } from '@/lib/gemini/service';
 import { isConfigured, getStoredModel, AI_MODELS } from '@/lib/gemini/config';
+import { exportPolishedText, exportHtml } from '@/lib/book/export';
+import type { Book } from '@/lib/book/docxProcessor';
+import type { Theme } from '@/lib/book/themes';
 
 export interface TextPolishDialogProps {
   text: string;
+  book: Book;
+  theme: Theme;
   onPolish: (polishedText: string) => void;
   isOpen: boolean;
   onClose: () => void;
@@ -14,15 +19,15 @@ export interface TextPolishDialogProps {
 
 type Status = 'idle' | 'running' | 'paused' | 'done' | 'stopped' | 'error';
 
-export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolishDialogProps) {
+export function TextPolishDialog({ text, book, theme, onPolish, isOpen, onClose }: TextPolishDialogProps) {
   const [polishMode, setPolishMode] = useState<PolishMode>('comprehensive');
   const [status, setStatus] = useState<Status>('idle');
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [partialResult, setPartialResult] = useState<string | null>(null);
+  const [polishedBook, setPolishedBook] = useState<Book | null>(null);
 
-  // AbortController ref for stop; pause flag ref checked between chunks
   const abortRef = useRef<AbortController | null>(null);
   const pausedRef = useRef(false);
   const pauseResolveRef = useRef<(() => void) | null>(null);
@@ -38,6 +43,24 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
       pauseResolveRef.current = resolve;
     });
 
+  // Build updated book from polished text to pass to export functions
+  const buildPolishedBook = (polishedText: string): Book => {
+    const sections = polishedText.split(/^## /m).filter(Boolean);
+    const updatedChapters = book.chapters.map((chapter, i) => {
+      const section = sections[i];
+      if (!section) return chapter;
+      const newlineIdx = section.indexOf('\n');
+      const body = newlineIdx >= 0 ? section.slice(newlineIdx + 1).trim() : '';
+      const newHtml = body
+        .split(/\n\n+/)
+        .filter(Boolean)
+        .map(para => `<p>${para.replace(/\n/g, '<br/>')}</p>`)
+        .join('\n');
+      return { ...chapter, html: newHtml || chapter.html };
+    });
+    return { ...book, chapters: updatedChapters };
+  };
+
   const handleStart = useCallback(async () => {
     if (!isConfigured()) {
       setError('API key not configured. Set it in ⚙️ AI Settings.');
@@ -51,12 +74,12 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
     setError(null);
     setProgress(0);
     setPartialResult(null);
+    setPolishedBook(null);
 
     const result = await processTextWithGemini(text, {
       mode: polishMode,
       signal: controller.signal,
       onProgress: async (prog, msg) => {
-        // Wait here if paused — progress callback is awaited between chunks
         await waitIfPaused();
         setProgress(prog);
         setProgressMessage(msg);
@@ -65,33 +88,30 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
 
     if (result.aborted) {
       setStatus('stopped');
-      setProgressMessage(`Stopped after ${result.chunksProcessed} chunk${(result.chunksProcessed ?? 0) !== 1 ? 's' : ''}`);
+      setProgressMessage(`Stopped at ${progress}%`);
       if (result.polishedText) setPartialResult(result.polishedText);
     } else if (result.success && result.polishedText) {
+      const pb = buildPolishedBook(result.polishedText);
+      setPolishedBook(pb);
+      onPolish(result.polishedText);
       setStatus('done');
       setProgress(100);
       setProgressMessage('✓ Polish complete');
-      onPolish(result.polishedText);
-      setTimeout(onClose, 1200);
     } else {
       setStatus('error');
       setError(result.error ?? 'Failed to polish text');
     }
-  }, [text, polishMode, onPolish, onClose]);
+  }, [text, polishMode]);
 
   const handlePause = () => {
     pausedRef.current = true;
     setStatus('paused');
-    setProgressMessage(prev => prev + ' (paused)');
   };
 
   const handleResume = () => {
     pausedRef.current = false;
     setStatus('running');
-    if (pauseResolveRef.current) {
-      pauseResolveRef.current();
-      pauseResolveRef.current = null;
-    }
+    if (pauseResolveRef.current) { pauseResolveRef.current(); pauseResolveRef.current = null; }
   };
 
   const handleStop = () => {
@@ -100,16 +120,17 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
     if (pauseResolveRef.current) { pauseResolveRef.current(); pauseResolveRef.current = null; }
   };
 
-  const handleApplyPartial = () => {
-    if (partialResult) { onPolish(partialResult); onClose(); }
-  };
-
   const handleReset = () => {
     setStatus('idle');
     setProgress(0);
     setProgressMessage('');
     setError(null);
     setPartialResult(null);
+    setPolishedBook(null);
+  };
+
+  const handleApplyPartial = () => {
+    if (partialResult) { onPolish(partialResult); onClose(); }
   };
 
   const isRunning = status === 'running';
@@ -129,14 +150,11 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
             <Wand2 size={20} className="text-purple-400" />
             Polish with AI
           </h2>
-          <button
-            onClick={onClose}
-            disabled={isRunning}
-            className="text-neutral-500 hover:text-white disabled:opacity-30 transition-colors"
-          >✕</button>
+          <button onClick={onClose} disabled={isRunning}
+            className="text-neutral-500 hover:text-white disabled:opacity-30 transition-colors">✕</button>
         </div>
 
-        {/* Stats + active model */}
+        {/* Stats */}
         <div className="mb-4 rounded-lg bg-neutral-800/60 px-4 py-3 text-sm space-y-1">
           <div className="flex justify-between text-neutral-300">
             <span>Words</span><span className="text-purple-400">{analysis.wordCount.toLocaleString()}</span>
@@ -152,7 +170,7 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
           </div>
         </div>
 
-        {/* Mode — only shown when idle */}
+        {/* Mode selection — idle only */}
         {status === 'idle' && (
           <div className="mb-5 space-y-1.5">
             <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Mode</label>
@@ -178,12 +196,14 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
           </div>
         )}
 
-        {/* Progress bar — shown while active or stopped/done */}
+        {/* Progress bar */}
         {(isActive || isStopped || isDone) && (
           <div className="mb-4 space-y-2">
             <div className="flex justify-between text-xs">
               <span className="text-neutral-300 truncate pr-2">{progressMessage}</span>
-              <span className={isPaused ? 'text-yellow-400' : 'text-purple-400'}>{progress}%</span>
+              <span className={isPaused ? 'text-yellow-400' : isStopped ? 'text-orange-400' : isDone ? 'text-green-400' : 'text-purple-400'}>
+                {progress}%
+              </span>
             </div>
             <div className="h-2 rounded-full bg-neutral-800 overflow-hidden">
               <div
@@ -202,29 +222,45 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
         {/* Error */}
         {isError && error && (
           <div className="mb-4 flex gap-2 rounded-lg bg-red-500/15 p-3 text-sm text-red-300">
-            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-            <div>{error}</div>
+            <AlertCircle size={16} className="shrink-0 mt-0.5" /><div>{error}</div>
           </div>
         )}
 
-        {/* Success */}
-        {isDone && (
-          <div className="mb-4 flex gap-2 rounded-lg bg-green-500/15 p-3 text-sm text-green-300">
-            <CheckCircle size={16} className="shrink-0 mt-0.5" />
-            Polished successfully — applying…
+        {/* ── DONE — Save options ── */}
+        {isDone && polishedBook && (
+          <div className="mb-4 space-y-3">
+            <div className="flex gap-2 rounded-lg bg-green-500/10 border border-green-500/30 p-3 text-sm text-green-300">
+              <CheckCircle size={16} className="shrink-0 mt-0.5" />
+              <div>Polished & applied to preview. Save a copy:</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => exportPolishedText(polishedBook)}
+                className="flex items-center justify-center gap-2 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2.5 text-sm text-white hover:bg-neutral-700 transition-colors"
+              >
+                <FileText size={15} />
+                Save as .txt
+              </button>
+              <button
+                onClick={() => exportHtml(polishedBook, theme)}
+                className="flex items-center justify-center gap-2 rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2.5 text-sm text-white hover:bg-neutral-700 transition-colors"
+              >
+                <Download size={15} />
+                Save as .html
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Partial result notice */}
+        {/* Stopped — partial */}
         {isStopped && partialResult && (
           <div className="mb-4 rounded-lg bg-orange-500/10 border border-orange-500/30 p-3 text-sm text-orange-300">
-            Partial result available ({progress}% processed). You can apply it or start over.
+            Partial result available ({progress}% done). Apply it or start over.
           </div>
         )}
 
         {/* Action buttons */}
         <div className="flex gap-2">
-          {/* Idle → Start */}
           {status === 'idle' && (
             <button onClick={handleStart}
               className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 transition-colors">
@@ -232,12 +268,11 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
             </button>
           )}
 
-          {/* Running → Pause + Stop */}
           {isRunning && (
             <>
               <button onClick={handlePause}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-yellow-600/80 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-500 transition-colors">
-                <Pause size={15} /> Pause
+                <Pause size={14} /> Pause
               </button>
               <button onClick={handleStop}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-red-700/70 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition-colors">
@@ -246,12 +281,11 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
             </>
           )}
 
-          {/* Paused → Resume + Stop */}
           {isPaused && (
             <>
               <button onClick={handleResume}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500 transition-colors">
-                <Play size={15} /> Resume
+                <Play size={14} /> Resume
               </button>
               <button onClick={handleStop}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-red-700/70 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition-colors">
@@ -260,7 +294,6 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
             </>
           )}
 
-          {/* Stopped → Apply partial / Try again */}
           {isStopped && (
             <>
               {partialResult && (
@@ -276,7 +309,6 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
             </>
           )}
 
-          {/* Error → Try again */}
           {isError && (
             <button onClick={handleReset}
               className="flex-1 rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600 transition-colors">
@@ -284,11 +316,17 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
             </button>
           )}
 
-          {/* Close always visible when not running */}
+          {isDone && (
+            <button onClick={onClose}
+              className="flex-1 rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600 transition-colors">
+              Close
+            </button>
+          )}
+
           {!isRunning && !isDone && (
             <button onClick={onClose}
               className="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:bg-neutral-800 transition-colors">
-              {isPaused ? 'Abandon' : 'Close'}
+              {isPaused ? 'Abandon' : 'Cancel'}
             </button>
           )}
         </div>
