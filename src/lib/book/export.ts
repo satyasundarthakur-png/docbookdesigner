@@ -5,7 +5,11 @@ import type { PageSize } from "./pageSize";
 import { PAGE_SIZES } from "./pageSize";
 import { FONT_LINK } from "./themes";
 
-export function exportHtml(book: Book, theme: Theme, pageSize?: PageSize) {
+/**
+ * Build the print-ready HTML document (used by both exportHtml and
+ * exportPdf so the two stay pixel-identical).
+ */
+function buildHtmlDocument(book: Book, theme: Theme, pageSize?: PageSize): string {
   const ps = pageSize ?? PAGE_SIZES['a5'];
   const cw = ps.widthPx - ps.marginInnerPx - ps.marginOuterPx;
   const ch = ps.heightPx - ps.marginTopPx - ps.marginBottomPx;
@@ -261,10 +265,51 @@ ${chaptersHtml}
 </body>
 </html>`;
 
+  return html;
+}
+
+export function exportHtml(book: Book, theme: Theme, pageSize?: PageSize) {
+  const html = buildHtmlDocument(book, theme, pageSize);
   saveAs(
     new Blob([html], { type: 'text/html;charset=utf-8' }),
     `${sanitize(book.title)}.html`,
   );
+}
+
+/**
+ * Export as PDF via the browser's native print pipeline. This opens a new
+ * window with the exact same styled HTML used for the HTML export, then
+ * triggers the print dialog so the user can "Save as PDF". This approach
+ * (rather than a canvas-rasterizing library) keeps text selectable and
+ * searchable, and correctly renders Unicode scripts (e.g. Odia, Devanagari)
+ * using the browser's own font engine instead of a client-side renderer
+ * that may not resolve those glyphs.
+ */
+export function exportPdf(book: Book, theme: Theme, pageSize?: PageSize) {
+  const html = buildHtmlDocument(book, theme, pageSize);
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    // Popup blocked — fall back to HTML download so the user isn't stuck
+    saveAs(new Blob([html], { type: 'text/html;charset=utf-8' }), `${sanitize(book.title)}.html`);
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  // Wait for fonts/layout to settle before opening the print dialog
+  const triggerPrint = () => {
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  if (printWindow.document.readyState === 'complete') {
+    setTimeout(triggerPrint, 400);
+  } else {
+    printWindow.addEventListener('load', () => setTimeout(triggerPrint, 400));
+  }
 }
 
 export function exportPolishedText(book: Book) {

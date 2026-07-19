@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Book } from "@/lib/book/docxProcessor";
 import { THEMES, type Theme } from "@/lib/book/themes";
-import { exportHtml } from "@/lib/book/export";
+import { exportHtml, exportPdf } from "@/lib/book/export";
+import { exportDocx } from "@/lib/book/exportDocx";
 import { PAGE_SIZES, type PageSize, type PageSizeId } from "@/lib/book/pageSize";
 import { bookToPolishText, polishTextToBook } from "@/lib/book/bookTextSync";
 import { GeminiSettings } from "@/components/gemini/GeminiSettings";
@@ -22,8 +23,32 @@ export function Toolbar({
   onTextUpdate?: (b: Book) => void;
   onCoverUpdate?: (html: string) => void;
 }) {
-  const [showPolish, setShowPolish] = useState(false);
-  const [showCover, setShowCover]   = useState(false);
+  const [showPolish, setShowPolish]   = useState(false);
+  const [showCover, setShowCover]     = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExportingDocx, setIsExportingDocx] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showExportMenu]);
+
+  const handleExportDocx = async () => {
+    setShowExportMenu(false);
+    setIsExportingDocx(true);
+    try {
+      await exportDocx(book, theme);
+    } finally {
+      setIsExportingDocx(false);
+    }
+  };
 
   const fullText = bookToPolishText(book);
 
@@ -93,11 +118,35 @@ export function Toolbar({
 
         <div className="w-px h-4 bg-white/10" />
 
-        {/* Action buttons */}
-        <button onClick={() => exportHtml(book, theme, pageSize)}
-          className="pill-btn">
-          <span>⬇️</span> Export
-        </button>
+        {/* Export dropdown */}
+        <div className="relative" ref={exportMenuRef}>
+          <button onClick={() => setShowExportMenu(v => !v)}
+            className="pill-btn">
+            <span>⬇️</span> Export
+          </button>
+
+          {showExportMenu && (
+            <div className="panel-glass absolute right-0 top-full mt-2 w-44 rounded-xl p-1.5 shadow-2xl z-50"
+              style={{ boxShadow: '0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,0.06)' }}>
+              <button
+                onClick={() => { exportHtml(book, theme, pageSize); setShowExportMenu(false); }}
+                className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-white/75 hover:bg-white/8 hover:text-white transition-colors text-left">
+                <span>🌐</span> HTML
+              </button>
+              <button
+                onClick={handleExportDocx}
+                disabled={isExportingDocx}
+                className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-white/75 hover:bg-white/8 hover:text-white transition-colors text-left disabled:opacity-40">
+                <span>📄</span> {isExportingDocx ? 'Building…' : 'Word (.docx)'}
+              </button>
+              <button
+                onClick={() => { exportPdf(book, theme, pageSize); setShowExportMenu(false); }}
+                className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-white/75 hover:bg-white/8 hover:text-white transition-colors text-left">
+                <span>📕</span> PDF
+              </button>
+            </div>
+          )}
+        </div>
 
         <button onClick={() => window.print()}
           className="pill-btn">
