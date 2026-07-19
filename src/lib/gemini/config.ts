@@ -8,14 +8,14 @@ export type AIProvider = 'gemini' | 'groq';
 
 export type AIModel =
   | 'gemini-2.5-flash'
-  | 'gemini-2.5-flash-lite-preview-06-17'
+  | 'gemini-2.5-flash-lite'
   | 'llama-3.3-70b-versatile'
   | 'llama-3.1-8b-instant'
   | 'mixtral-8x7b-32768';
 
 export const AI_MODELS: { id: AIModel; provider: AIProvider; label: string; description: string }[] = [
   { id: 'gemini-2.5-flash', provider: 'gemini', label: 'Gemini 2.5 Flash', description: 'Best quality' },
-  { id: 'gemini-2.5-flash-lite-preview-06-17', provider: 'gemini', label: 'Gemini 2.5 Flash Lite', description: 'Faster & cheaper' },
+  { id: 'gemini-2.5-flash-lite', provider: 'gemini', label: 'Gemini 2.5 Flash Lite', description: 'Faster & cheaper' },
   { id: 'llama-3.3-70b-versatile', provider: 'groq', label: 'Llama 3.3 70B', description: 'Best Groq quality' },
   { id: 'llama-3.1-8b-instant', provider: 'groq', label: 'Llama 3.1 8B', description: 'Fastest Groq' },
   { id: 'mixtral-8x7b-32768', provider: 'groq', label: 'Mixtral 8x7B', description: 'Large context' },

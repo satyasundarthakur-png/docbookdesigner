@@ -37,7 +37,7 @@ export interface CoverPageResponse {
   error?: string;
 }
 
-// ── Gemini call ──────────────────────────────────────────────────────────────
+// ── Gemini ───────────────────────────────────────────────────────────────────
 
 async function callGemini(modelId: string, prompt: string, apiKey: string): Promise<string> {
   const client = new GoogleGenerativeAI(apiKey);
@@ -49,15 +49,12 @@ async function callGemini(modelId: string, prompt: string, apiKey: string): Prom
   return response.response.text().trim();
 }
 
-// ── Groq call ────────────────────────────────────────────────────────────────
+// ── Groq ─────────────────────────────────────────────────────────────────────
 
 async function callGroq(modelId: string, prompt: string, apiKey: string): Promise<string> {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: modelId,
       messages: [{ role: 'user', content: prompt }],
@@ -73,17 +70,17 @@ async function callGroq(modelId: string, prompt: string, apiKey: string): Promis
   return data.choices?.[0]?.message?.content?.trim() ?? '';
 }
 
-// ── Unified call ─────────────────────────────────────────────────────────────
+// ── Unified ──────────────────────────────────────────────────────────────────
 
 async function callAI(modelId: AIModel, prompt: string): Promise<string> {
   const provider = getModelProvider(modelId);
   if (provider === 'groq') {
     const key = getStoredGroqKey();
-    if (!key) throw new Error('Groq API key not configured. Set it in ⚙️ AI Settings.');
+    if (!key) throw new Error('Groq API key not set. Add it in ⚙️ AI Settings.');
     return callGroq(modelId, prompt, key);
   } else {
     const key = getStoredGeminiKey();
-    if (!key) throw new Error('Gemini API key not configured. Set it in ⚙️ AI Settings.');
+    if (!key) throw new Error('Gemini API key not set. Add it in ⚙️ AI Settings.');
     return callGemini(modelId, prompt, key);
   }
 }
@@ -94,40 +91,36 @@ export async function processTextWithGemini(
   text: string,
   options: ProcessOptions,
 ): Promise<ProcessResponse> {
-  try {
-    const modelId = options.model ?? getStoredModel();
-    const startTime = Date.now();
-    const chunks = chunkText(text);
-    const processedChunks = new Map<string, string>();
-    const errors: string[] = [];
+  const modelId = options.model ?? getStoredModel();
+  const startTime = Date.now();
+  const chunks = chunkText(text);
+  const processedChunks = new Map<string, string>();
 
-    options.onProgress?.(0, `${chunks.length} chunk${chunks.length > 1 ? 's' : ''} · starting…`);
+  options.onProgress?.(0, `${chunks.length} chunk${chunks.length > 1 ? 's' : ''} · starting…`);
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      options.onProgress?.(Math.round((i / chunks.length) * 100), `Chunk ${i + 1} / ${chunks.length}…`);
-      try {
-        const prompt = `${getPolishModePrompt(options.mode)}\n\n---\n\n${chunk.content}`;
-        const result = await callAI(modelId, prompt);
-        processedChunks.set(chunk.id, result);
-        await new Promise(r => setTimeout(r, 200));
-      } catch (e) {
-        errors.push(`Chunk ${i + 1}: ${e instanceof Error ? e.message : 'error'}`);
-        processedChunks.set(chunk.id, chunk.content);
-      }
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    options.onProgress?.(Math.round((i / chunks.length) * 100), `Chunk ${i + 1} / ${chunks.length}…`);
+
+    try {
+      const prompt = `${getPolishModePrompt(options.mode)}\n\n---\n\n${chunk.content}`;
+      const result = await callAI(modelId, prompt);
+      processedChunks.set(chunk.id, result);
+      await new Promise(r => setTimeout(r, 200));
+    } catch (e) {
+      // Fail fast — first error stops everything
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      return { success: false, error: msg };
     }
-
-    options.onProgress?.(100, 'Done');
-    return {
-      success: errors.length === 0,
-      polishedText: reconstructText(text, processedChunks),
-      chunksProcessed: chunks.length,
-      totalTime: Date.now() - startTime,
-      error: errors.length > 0 ? errors.join('; ') : undefined,
-    };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to process text' };
   }
+
+  options.onProgress?.(100, 'Done');
+  return {
+    success: true,
+    polishedText: reconstructText(text, processedChunks),
+    chunksProcessed: chunks.length,
+    totalTime: Date.now() - startTime,
+  };
 }
 
 // ── Cover page ───────────────────────────────────────────────────────────────
@@ -146,7 +139,7 @@ Rules:
 - No <img> tags — use CSS gradients, borders, shapes for decoration
 - Min-height 720px, centered layout, print-ready
 - Include title prominently, author if provided, decorative elements matching genre/style
-- You may include a <style> tag inside the div for @font-face or Google Fonts @import`;
+- You may include a <style> tag inside the div for Google Fonts @import`;
 
     const html = (await callAI(modelId, prompt))
       .replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -157,5 +150,5 @@ Rules:
   }
 }
 
-// keep legacy export name
+// legacy compat
 export const validateApiKey = async (_key: string) => true;

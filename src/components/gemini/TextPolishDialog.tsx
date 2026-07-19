@@ -165,7 +165,7 @@ export function TextPolishDialog({ text, onPolish, isOpen, onClose }: TextPolish
         </div>
 
         <p className="mt-4 text-xs text-neutral-600 text-center">
-          Uses Google Gemini 2.5 Flash · Your API key stays in your browser
+          Your API key is stored locally in your browser
         </p>
       </div>
     </div>
