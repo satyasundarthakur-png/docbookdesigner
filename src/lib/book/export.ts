@@ -213,6 +213,25 @@ body {
   opacity: .85;
 }
 
+
+.body .caution-box {
+  display:flex;
+  gap:8px;
+  background:rgba(180,60,0,0.06);
+  border-left:3px solid var(--acc);
+  border-radius:0 4px 4px 0;
+  padding:10px 14px;
+  margin:14px 0;
+  font-size:${Math.round(ps.bodyFontSizePx * 0.9)}px;
+  line-height:${Math.round(ps.leadingPx * 0.95)}px;
+  page-break-inside:avoid;
+}
+.body .caution-icon {
+  flex-shrink:0;
+  margin-top:1px;
+}
+.body .caution-body { flex:1; }
+
 /* ── Print ── */
 @media print {
   body { background: #fff !important; padding: 0 !important; }

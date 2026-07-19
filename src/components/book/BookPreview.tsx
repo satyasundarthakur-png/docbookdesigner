@@ -254,6 +254,27 @@ export function BookPreview({
           opacity:.85;
         }
 
+
+        /* Caution box */
+        .body .caution-box, .body-cont .caution-box {
+          display:flex;
+          gap:${Math.round(bodyFontSizePx * 0.6)}px;
+          background:rgba(180,60,0,0.06);
+          border-left:3px solid ${theme.accent};
+          border-radius:0 4px 4px 0;
+          padding:${Math.round(leadingPx * 0.55)}px ${Math.round(leadingPx * 0.7)}px;
+          margin:${Math.round(leadingPx * 0.9)}px 0;
+          font-size:${Math.round(bodyFontSizePx * 0.9)}px;
+          line-height:${Math.round(leadingPx * 0.95)}px;
+          page-break-inside:avoid;
+        }
+        .body .caution-icon, .body-cont .caution-icon {
+          font-size:${Math.round(bodyFontSizePx * 1.1)}px;
+          flex-shrink:0;
+          margin-top:1px;
+        }
+        .body .caution-body, .body-cont .caution-body { flex:1; }
+
         /* Chapter header (first page only) */
         .chap-header { margin-bottom:0; }
         .chap-num {
