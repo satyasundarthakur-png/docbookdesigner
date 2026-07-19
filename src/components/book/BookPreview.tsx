@@ -22,51 +22,6 @@ function Page({
   );
 }
 
-// ── Split raw HTML into fixed-height page buckets ────────────────────────────
-// Renders into a hidden off-screen container, measures each child element,
-// then fills pages until they overflow, carrying remainder to next page.
-function usePagedChapter(
-  html: string,
-  contentHeightPx: number,
-  chapterHeaderHeightPx: number,
-): string[][] {
-  const [pages, setPages] = useState<string[][]>([[]]);
-  const probeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const probe = probeRef.current;
-    if (!probe) return;
-    probe.innerHTML = html;
-
-    const children = Array.from(probe.children) as HTMLElement[];
-    const result: string[][] = [];
-    let current: string[] = [];
-    let usedHeight = chapterHeaderHeightPx; // first page has header
-    const maxFirst  = contentHeightPx - chapterHeaderHeightPx;
-    const maxRest   = contentHeightPx;
-
-    for (let i = 0; i < children.length; i++) {
-      const el = children[i];
-      const h  = el.getBoundingClientRect().height || el.offsetHeight || 24;
-      const cap = result.length === 0 ? maxFirst : maxRest;
-
-      if (usedHeight + h > cap && current.length > 0) {
-        result.push(current);
-        current   = [];
-        usedHeight = 0;
-      }
-      current.push(el.outerHTML);
-      usedHeight += h;
-    }
-    if (current.length > 0) result.push(current);
-    if (result.length === 0) result.push([]);
-
-    setPages(result);
-  }, [html, contentHeightPx, chapterHeaderHeightPx]);
-
-  return pages;
-}
-
 // ── Single chapter split into multiple fixed pages ───────────────────────────
 function ChapterPages({
   chapter, index, pageStyle, contentHeightPx, chapterHeaderHeightPx, fontCss,
@@ -78,11 +33,37 @@ function ChapterPages({
   chapterHeaderHeightPx: number;
   fontCss: string;
 }) {
-  const pages = usePagedChapter(chapter.html, contentHeightPx, chapterHeaderHeightPx);
-
-  // Hidden probe to measure elements (invisible, off-screen)
+  const [pages, setPages] = useState<string[][]>([[chapter.html]]);
   const probeRef = useRef<HTMLDivElement>(null);
-  // We use a key trick: the probe div is rendered but hidden
+
+  useEffect(() => {
+    const probe = probeRef.current;
+    if (!probe) return;
+    const children = Array.from(probe.children) as HTMLElement[];
+    if (children.length === 0) { setPages([[chapter.html]]); return; }
+
+    const result: string[][] = [];
+    let current: string[] = [];
+    let usedHeight = chapterHeaderHeightPx;
+    const maxFirst = contentHeightPx - chapterHeaderHeightPx;
+    const maxRest  = contentHeightPx;
+
+    for (const el of children) {
+      const h = el.getBoundingClientRect().height || el.offsetHeight || 24;
+      const cap = result.length === 0 ? maxFirst : maxRest;
+      if (usedHeight + h > cap && current.length > 0) {
+        result.push(current);
+        current = [];
+        usedHeight = 0;
+      }
+      current.push(el.outerHTML);
+      usedHeight += h;
+    }
+    if (current.length > 0) result.push(current);
+    if (result.length === 0) result.push([chapter.html]);
+    setPages(result);
+  }, [chapter.html, contentHeightPx, chapterHeaderHeightPx, pageStyle.width, pageStyle.fontFamily]);
+
   return (
     <>
       {/* Off-screen measurement probe */}
